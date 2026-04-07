@@ -104,14 +104,15 @@ MCP servers are automatically available to all models and channels. OpenAgent in
 
 These are injected automatically. No configuration needed.
 
-| Name | Source | Description | Requires |
+| Name | Source | Tools | Requires |
 |---|---|---|---|
 | `filesystem` | [@modelcontextprotocol/server-filesystem](https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem) (official) | Read, write, list, search files | Node.js |
-| `fetch` | [mcp-server-fetch](https://pypi.org/project/mcp-server-fetch/) (official) | Fetch web URLs, HTML-to-markdown | Python (uvx) |
-| `shell` | Custom (bundled) | Cross-platform shell command execution | Node.js |
-| `computer-use` | Custom (bundled) | Screenshot, mouse & keyboard control | Node.js |
+| `editor` | Custom (bundled) | `edit` (surgical find-replace), `grep` (regex search with context), `glob` (pattern file matching) | Node.js |
+| `web-search` | [web-search-mcp](https://github.com/mrkrsl/web-search-mcp) (bundled) | `full-web-search`, `get-web-search-summaries`, `get-single-web-page-content` — no API key needed | Node.js + Playwright |
+| `shell` | Custom (bundled) | `shell_exec`, `shell_which` — cross-platform shell execution | Node.js |
+| `computer-use` | Custom (bundled) | `computer` — screenshot, mouse & keyboard control | Node.js |
 
-All defaults are cross-platform (macOS, Linux, Windows). If a prerequisite is missing (e.g. Node.js not installed), that MCP is skipped with a warning.
+All defaults are cross-platform (macOS, Linux, Windows) and require only Node.js. Playwright browsers are auto-installed on first use. If a prerequisite is missing, that MCP is skipped with a warning.
 
 ### Disabling Defaults
 
@@ -120,7 +121,7 @@ All defaults are cross-platform (macOS, Linux, Windows). If a prerequisite is mi
 mcp_defaults: false
 
 # Disable specific ones
-mcp_disable: ["computer-use", "fetch"]
+mcp_disable: ["computer-use", "web-search"]
 ```
 
 ```python

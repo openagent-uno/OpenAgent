@@ -10,7 +10,8 @@ model:
 
 # Default MCPs are always loaded automatically:
 #   - filesystem (read/write/list/search files)
-#   - fetch (web URL fetching with HTML-to-markdown)
+#   - editor (surgical edit, grep, glob)
+#   - web-search (web search + single page fetch, no API key needed)
 #   - shell (cross-platform shell command execution)
 #   - computer-use (screenshot, mouse, keyboard control)
 #
@@ -18,7 +19,7 @@ model:
 #   mcp_defaults: false
 #
 # To disable specific defaults:
-#   mcp_disable: ["computer-use", "fetch"]
+#   mcp_disable: ["computer-use", "web-search"]
 
 # User MCPs are merged on top of defaults:
 mcp:
