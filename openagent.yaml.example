@@ -14,27 +14,40 @@ model:
 #   - web-search (web search + single page fetch, no API key needed)
 #   - shell (cross-platform shell command execution)
 #   - computer-use (screenshot, mouse, keyboard control)
+#   - chrome-devtools (browser automation, DOM, performance)
 #
 # To disable all defaults:
 #   mcp_defaults: false
 #
 # To disable specific defaults:
-#   mcp_disable: ["computer-use", "web-search"]
+#   mcp_disable: ["computer-use", "chrome-devtools"]
 
 # User MCPs are merged on top of defaults:
 mcp:
-  # Remote MCP server (SSE transport)
+  # Proactive messaging (requires channel tokens):
+  # - builtin: messaging
+  #   env:
+  #     TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+  #     DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+  #     GREEN_API_ID: ${GREEN_API_ID}
+  #     GREEN_API_TOKEN: ${GREEN_API_TOKEN}
+
+  # Remote MCP server:
   # - name: web-search
   #   url: "http://localhost:8080/sse"
-
-  # Override the default filesystem root:
-  # - name: filesystem
-  #   command: ["npx", "-y", "@modelcontextprotocol/server-filesystem"]
-  #   args: ["/Users/me/data"]
 
 memory:
   db_path: "./openagent.db"
   auto_extract: true
+
+# Scheduled tasks (cron-based, stored in DB, survive reboots)
+scheduler:
+  enabled: true
+  tasks: []
+  # Example:
+  # - name: daily-report
+  #   cron: "0 9 * * *"
+  #   prompt: "Generate and send the daily status report"
 
 channels:
   telegram:

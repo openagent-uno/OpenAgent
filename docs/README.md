@@ -98,7 +98,7 @@ class MyModel(BaseModel):
 
 ## MCP (Model Context Protocol)
 
-MCP servers are automatically available to all models and channels. OpenAgent includes **4 default MCPs** that are always loaded — your custom MCPs are merged on top.
+MCP servers are automatically available to all models and channels. OpenAgent includes **6 default MCPs** that are always loaded — your custom MCPs are merged on top.
 
 ### Default MCPs (always loaded)
 
@@ -111,8 +111,25 @@ These are injected automatically. No configuration needed.
 | `web-search` | [web-search-mcp](https://github.com/mrkrsl/web-search-mcp) (bundled) | `full-web-search`, `get-web-search-summaries`, `get-single-web-page-content` — no API key needed | Node.js + Playwright |
 | `shell` | Custom (bundled) | `shell_exec`, `shell_which` — cross-platform shell execution | Node.js |
 | `computer-use` | Custom (bundled) | `computer` — screenshot, mouse & keyboard control | Node.js |
+| `chrome-devtools` | [chrome-devtools-mcp](https://www.npmjs.com/package/chrome-devtools-mcp) (official) | Browser automation, performance analysis, DOM inspection (29 tools) | Node.js + Chrome |
 
-All defaults are cross-platform (macOS, Linux, Windows) and require only Node.js. Playwright browsers are auto-installed on first use. If a prerequisite is missing, that MCP is skipped with a warning.
+### Optional Built-in MCPs
+
+These ship with OpenAgent but are **not loaded by default** (they require credentials):
+
+| Name | Tools | Requires |
+|---|---|---|
+| `messaging` | `telegram_send_message`, `telegram_send_file`, `discord_send_message`, `discord_send_file`, `whatsapp_send_message`, `whatsapp_send_file` | Channel tokens (env vars) |
+
+Enable messaging MCP:
+```yaml
+mcp:
+  - builtin: messaging
+    env:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+```
+
+All defaults are cross-platform (macOS, Linux, Windows). If a prerequisite is missing, that MCP is skipped with a warning.
 
 ### Disabling Defaults
 
@@ -412,6 +429,76 @@ async with agent:
 
 ---
 
+## Scheduler
+
+Cron-based task scheduler. Tasks are stored in SQLite and survive process restarts and reboots.
+
+### Configuration
+
+```yaml
+scheduler:
+  enabled: true
+  tasks:
+    - name: daily-report
+      cron: "0 9 * * *"
+      prompt: "Generate and send the daily status report"
+    - name: health-check
+      cron: "*/30 * * * *"
+      prompt: "Check all services and report any issues"
+```
+
+### CLI Management
+
+```bash
+openagent task add --name "daily-report" --cron "0 9 * * *" --prompt "Generate report"
+openagent task list
+openagent task remove <id>
+openagent task enable <id>
+openagent task disable <id>
+```
+
+The scheduler runs automatically as part of `openagent serve`.
+
+---
+
+## Media Support
+
+All channels (Telegram, Discord, WhatsApp) support sending and receiving:
+- Images (jpg, png, gif, webp)
+- Files/documents (any type)
+- Voice messages (ogg, mp3, wav)
+- Videos (mp4, mov)
+
+The agent can send files by including markers in its response:
+```
+Here's the chart you requested:
+[IMAGE:/path/to/chart.png]
+
+And the full report:
+[FILE:/path/to/report.pdf]
+```
+
+---
+
+## Auto-Start (System Service)
+
+Install OpenAgent as a system service that starts on boot:
+
+```bash
+openagent install     # Register as system service
+openagent uninstall   # Remove system service
+openagent status      # Check if service is running
+```
+
+Cross-platform:
+- **macOS**: launchd (~/Library/LaunchAgents/)
+- **Linux**: systemd user unit (~/.config/systemd/user/)
+- **Windows**: Task Scheduler
+
+The service runs `openagent serve` with all configured channels and the scheduler.
+
+---
+
 ## CLI Reference
 
 ```bash
@@ -419,9 +506,15 @@ openagent chat                         # Interactive chat
 openagent chat -m zhipu                # Chat with Z.ai GLM
 openagent chat --model-id glm-4-flash  # Override model ID
 openagent chat -s session-123          # Resume session
-openagent serve                        # Start all configured channels
+openagent serve                        # Start all channels + scheduler
 openagent serve -ch telegram           # Start specific channel
+openagent task add -n "name" -c "cron" -p "prompt"  # Add scheduled task
+openagent task list                    # List tasks
+openagent task remove <id>             # Remove task
 openagent mcp list                     # List MCP tools
+openagent install                      # Install as system service
+openagent uninstall                    # Remove system service
+openagent status                       # Check service status
 openagent --config my.yaml chat        # Use custom config file
 openagent -v chat                      # Verbose/debug mode
 ```
