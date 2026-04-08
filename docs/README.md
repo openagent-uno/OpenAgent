@@ -58,9 +58,9 @@ model:
 ```yaml
 model:
   provider: zhipu
-  model_id: glm-4
-  api_key: ${ZHIPU_API_KEY}
-  base_url: https://open.bigmodel.cn/api/paas/v4
+  model_id: glm-5                              # or glm-4-plus, glm-4-flash, glm-4
+  api_key: ${ZAI_API_KEY}                       # also accepts ZHIPU_API_KEY
+  base_url: https://api.z.ai/api/paas/v4        # new Z.ai endpoint (replaces open.bigmodel.cn)
 ```
 
 Works with Ollama, vLLM, LM Studio — just change `base_url`:
