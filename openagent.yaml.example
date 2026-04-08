@@ -13,14 +13,14 @@ model:
 #   - editor (surgical edit, grep, glob)
 #   - web-search (web search + single page fetch, no API key needed)
 #   - shell (cross-platform shell command execution)
-#   - computer-use (screenshot, mouse, keyboard control)
+#   - computer-control (screenshot, mouse, keyboard control)
 #   - chrome-devtools (browser automation, DOM, performance)
 #
 # To disable all defaults:
 #   mcp_defaults: false
 #
 # To disable specific defaults:
-#   mcp_disable: ["computer-use", "chrome-devtools"]
+#   mcp_disable: ["computer-control", "chrome-devtools"]
 
 # User MCPs are merged on top of defaults:
 mcp:

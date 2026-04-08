@@ -110,7 +110,7 @@ These are injected automatically. No configuration needed.
 | `editor` | Custom (bundled) | `edit` (surgical find-replace), `grep` (regex search with context), `glob` (pattern file matching) | Node.js |
 | `web-search` | [web-search-mcp](https://github.com/mrkrsl/web-search-mcp) (bundled) | `full-web-search`, `get-web-search-summaries`, `get-single-web-page-content` — no API key needed | Node.js + Playwright |
 | `shell` | Custom (bundled) | `shell_exec`, `shell_which` — cross-platform shell execution | Node.js |
-| `computer-use` | Custom (bundled) | `computer` — screenshot, mouse & keyboard control | Node.js |
+| `computer-control` | Custom (bundled) | `computer` — screenshot, mouse & keyboard control | Node.js |
 | `chrome-devtools` | [chrome-devtools-mcp](https://www.npmjs.com/package/chrome-devtools-mcp) (official) | Browser automation, performance analysis, DOM inspection (29 tools) | Node.js + Chrome |
 
 ### Optional Built-in MCPs
@@ -138,13 +138,13 @@ All defaults are cross-platform (macOS, Linux, Windows). If a prerequisite is mi
 mcp_defaults: false
 
 # Disable specific ones
-mcp_disable: ["computer-use", "web-search"]
+mcp_disable: ["computer-control", "web-search"]
 ```
 
 ```python
 # Programmatic
 registry = MCPRegistry.from_config(mcp_config=[], include_defaults=False)
-registry = MCPRegistry.from_config(mcp_config=[], disable=["computer-use"])
+registry = MCPRegistry.from_config(mcp_config=[], disable=["computer-control"])
 ```
 
 ### Adding Your Own MCPs
@@ -179,7 +179,7 @@ mcp:
 ```python
 from openagent.mcp import MCPTools, MCPRegistry
 
-# With defaults (filesystem, fetch, shell, computer-use) + custom
+# With defaults (filesystem, fetch, shell, computer-control) + custom
 registry = MCPRegistry.from_config(mcp_config=[
     {"name": "search", "url": "http://localhost:8080/sse"},
 ])
@@ -378,7 +378,7 @@ model:
   # base_url: https://...        # only for zhipu/OpenAI-compatible
 
 # mcp_defaults: true               # set false to disable all default MCPs
-# mcp_disable: ["computer-use"]    # disable specific default MCPs
+# mcp_disable: ["computer-control"]    # disable specific default MCPs
 
 mcp:                                # user MCPs (merged on top of defaults)
   - name: web-search
