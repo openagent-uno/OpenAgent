@@ -143,36 +143,73 @@ These are handled automatically by OpenAgent — you just write `openagent.yaml`
 
 ## Memory
 
-Dual memory system: quick facts in SQLite + detailed knowledge in Obsidian-compatible `.md` files.
+OpenAgent's long-term memory is a plain **Obsidian-compatible markdown vault**. The agent reads and writes `.md` files directly via the [`mcpvault`](https://www.npmjs.com/package/@bitbonsai/mcpvault) MCP — no custom index, no full-text engine, no proprietary format. The files on disk *are* the database.
+
+Session history (the per-conversation message log) is handled separately by the Claude Agent SDK's `resume=session_id`; OpenAgent no longer keeps it in SQLite. The SQLite file is only used for scheduled tasks.
 
 ### Configuration
 
 ```yaml
 memory:
-  db_path: "./openagent.db"       # SQLite: sessions, messages, facts, scheduled tasks
-  knowledge_dir: "./memories"     # Obsidian-compatible .md files (FTS5 indexed)
-  auto_extract: true              # auto-extract facts + knowledge from conversations
+  db_path: "./openagent.db"     # SQLite — scheduled tasks only
+  vault_path: "./memories"      # Obsidian markdown vault
 ```
 
-### How It Works
+### How it works
 
-- **Session history**: every message stored immediately in SQLite
-- **Quick facts**: short preferences extracted automatically → SQLite
-- **Knowledge base**: detailed docs → `.md` files with YAML frontmatter, `[[wikilinks]]`, tags
-- **Hybrid search**: FTS5 snippets injected into context (compact, not full files)
-- **Obsidian-compatible**: open `memories/` in Obsidian for graph view
+- The agent writes notes as `.md` files inside `vault_path/`
+- MCPVault exposes `list_notes`, `read_note`, `write_note`, `search_notes`, `get_backlinks`, etc.
+- Open the same `memories/` folder in Obsidian desktop and you get graph view, backlinks and plugin support for free
+- Or enable the built-in **Obsidian web** service (see [Services](#services)) to run Obsidian desktop *inside a browser*, directly on the VPS
 
-### Memory File Format
+### Memory file format
 
 ```markdown
 ---
-topic: deploy
+title: Deploy Wardrobe Service
+type: reference
 tags: [k8s, wardrobe, ovh]
-links: [[server-architecture]]
-created: 2026-04-07T12:00:00
+created: 2026-04-07
 ---
+
 # Deploy Wardrobe Service
+
 rsync + docker build + k3s import...
+See also: [[server-architecture]]
+```
+
+`[[wikilinks]]`, tags and YAML frontmatter are standard Obsidian conventions. Nothing is OpenAgent-specific.
+
+---
+
+## Services
+
+Auxiliary services run alongside the agent and are managed by the same lifecycle (`openagent serve` starts them, shutdown stops them). Each service is a plug-in — currently there's one built-in, `obsidian_web`, and the same pattern can host a VNC server, a Caddy reverse proxy, or anything else that needs to live next to the agent.
+
+### Obsidian web (built-in)
+
+Runs the real Obsidian desktop app inside a Docker container (`lscr.io/linuxserver/obsidian`) with KasmVNC as the web frontend. The `memories/` vault is mounted read/write into the container, so any note the agent writes is visible immediately in the UI, and vice versa.
+
+```yaml
+services:
+  obsidian_web:
+    enabled: true
+    port: 8200
+    username: admin
+    password: ${OBSIDIAN_PASSWORD}      # required
+    vault_path: /home/ubuntu/OpenAgent/memories
+```
+
+Access: `http://<host>:8200` → KasmVNC login → full Obsidian desktop. Graph view, plugins, themes all work. The container uses `--restart=unless-stopped`, so it survives agent crashes too.
+
+Requires Docker on the host. `openagent setup --full` installs Docker on Linux automatically and pulls the image for you.
+
+Manual control:
+
+```bash
+openagent services status       # check every configured aux service
+openagent services start
+openagent services stop
 ```
 
 ---
@@ -257,75 +294,119 @@ openagent task disable <id>
 
 ---
 
-## Auto-Start (System Service)
+## Doctor & Setup
+
+`openagent doctor` checks the environment and reports missing pieces. `openagent setup` installs them — Docker, OS service, aux service images — as far as each platform allows.
 
 ```bash
-openagent install     # register as system service
-openagent uninstall   # remove
-openagent status      # check if running
+openagent doctor              # environment report, non-destructive
+openagent setup               # register OpenAgent as an OS service (default)
+openagent setup --with-docker # also install Docker where automatable
+openagent setup --pull-images # also pre-pull images for every enabled aux service
+openagent setup --full        # everything: Docker + OS service + image pulls
+openagent install             # alias for `setup --full`
 ```
 
-- **macOS**: launchd (`~/Library/LaunchAgents/`)
-- **Linux**: systemd user unit (`~/.config/systemd/user/`)
-- **Windows**: Task Scheduler
+Platform support for automatic Docker install:
+
+| Platform | Docker install | Notes |
+|---|---|---|
+| Linux (apt / dnf / pacman / zypper / apk) | **Fully automated** | Requires sudo. Enables the systemd unit and adds the current user to the `docker` group. |
+| macOS | `brew install --cask docker` | Docker Desktop is a GUI app; you still have to launch it once to accept the EULA. |
+| Windows | `winget install Docker.DockerDesktop` | Reboot required afterwards. |
+
+`openagent setup --full` is idempotent: running it on an already-configured machine will just verify and move on.
+
+### OS service
+
+`openagent setup` registers OpenAgent as a platform-native service so it auto-starts on boot and auto-restarts on crash:
+
+- **Linux** — systemd user unit at `~/.config/systemd/user/openagent.service`, with `Restart=always` and `SuccessExitStatus=75` so the auto-updater's exit code 75 triggers a clean restart. You also want `loginctl enable-linger <user>` so the service survives logout on a headless VPS.
+- **macOS** — launchd plist at `~/Library/LaunchAgents/com.openagent.serve.plist`, with `KeepAlive` / `SuccessfulExit=false`.
+- **Windows** — `.bat` wrapper + Task Scheduler entry (`ONLOGON`, with an internal restart loop).
+
+```bash
+# Linux
+systemctl --user status openagent
+journalctl --user -u openagent -f
+
+# macOS
+launchctl list com.openagent.serve
+
+# uninstall (any platform)
+openagent uninstall
+```
+
+---
+
+## Auto-update
+
+OpenAgent can check PyPI on a schedule and upgrade itself in place.
+
+```yaml
+auto_update:
+  enabled: true
+  mode: auto                    # auto | notify | manual
+  check_interval: "17 */6 * * *"  # every 6h at minute :17
+```
+
+Modes:
+- `auto` — pip upgrade + notify (if messaging MCP is configured) + exit with code 75. The OS service manager (systemd / launchd / Task Scheduler) catches the exit and restarts the process with the new code already installed.
+- `notify` — pip upgrade + notify, but don't restart. New code takes effect on the next manual restart.
+- `manual` — pip upgrade only. No notification, no restart.
+
+Requires `auto_update.enabled: true` **and** an OS service supervising the process — otherwise exit 75 just kills it.
+
+Manual update at any time:
+
+```bash
+openagent update              # check PyPI, upgrade if newer
+```
+
+---
+
+## Dream mode
+
+Dream mode is a built-in nightly maintenance task. When enabled, it runs a prompt that cleans `/tmp`, consolidates duplicate memory files, runs a system health check, and writes an audit log into the vault.
+
+```yaml
+dream_mode:
+  enabled: true
+  time: "3:00"                  # local time, converted to cron
+  # or:
+  # cron: "0 3 * * *"
+```
 
 ---
 
 ## VPS Deployment
 
-For deploying on a VPS (the primary use case):
-
-### 1. Install
+For a fresh Linux VPS, the whole setup is three commands:
 
 ```bash
-pip install openagent-framework[all]
+# 1. Install
+pip install 'openagent-framework[all]'
+
+# 2. Create openagent.yaml (see the YAML reference below)
+# 3. One-shot setup: Docker + systemd service + image pulls
+openagent setup --full
 ```
 
-### 2. Create config
-
-```yaml
-# openagent.yaml — single file, all config
-name: my-agent
-model:
-  provider: claude-cli
-  permission_mode: bypass
-memory:
-  db_path: ./openagent.db
-  knowledge_dir: ./memories
-mcp_defaults: true
-mcp:
-  - name: github
-    command: ["github-mcp-server", "stdio"]
-    env:
-      GITHUB_PERSONAL_ACCESS_TOKEN: ${GITHUB_TOKEN}
-channels:
-  telegram:
-    token: ${TELEGRAM_BOT_TOKEN}
-    allowed_users: ["YOUR_TELEGRAM_ID"]
-scheduler:
-  enabled: true
-  tasks: []
-```
-
-### 3. Start
+`openagent setup --full` leaves you with a running systemd user service, the Obsidian web UI (if enabled) on its configured port, and auto-update ready to pick up future releases from PyPI. After that you only interact with systemd:
 
 ```bash
-# Foreground
-openagent serve
-
-# Background (recommended for VPS)
-screen -dmS openagent bash -c 'openagent serve > openagent.log 2>&1'
-
-# Or use the bundled scripts
-./start.sh    # kills old instance, waits for Telegram cooldown, starts in screen
-./stop.sh     # clean stop
+systemctl --user restart openagent
+systemctl --user stop openagent
+systemctl --user start openagent
+journalctl --user -u openagent -f           # live logs
+tail -f ~/.openagent/logs/openagent.out.log # stdout log
 ```
 
-### 4. Upgrade
+Upgrading manually (rarely needed if `auto_update.enabled: true`):
 
 ```bash
-pip install --upgrade openagent-framework[all]
-./stop.sh && ./start.sh
+pip install --upgrade 'openagent-framework[all]'
+systemctl --user restart openagent
 ```
 
 The agent cannot modify its own code — only `openagent.yaml` and `memories/` are writable.
@@ -366,9 +447,8 @@ mcp:                             # user MCPs (merged on top of defaults)
     oauth: true                  # enables OAuth flow for first-time auth
 
 memory:
-  db_path: "./openagent.db"
-  knowledge_dir: "./memories"
-  auto_extract: true
+  db_path: "./openagent.db"     # SQLite: scheduled tasks only
+  vault_path: "./memories"      # Obsidian markdown vault
 
 channels:
   telegram:
@@ -380,12 +460,29 @@ channels:
     green_api_id: ${GREEN_API_ID}
     green_api_token: ${GREEN_API_TOKEN}
 
+services:
+  obsidian_web:
+    enabled: true
+    port: 8200
+    username: admin
+    password: ${OBSIDIAN_PASSWORD}
+    vault_path: ./memories
+
 scheduler:
   enabled: true
   tasks:
     - name: health-check
       cron: "*/30 * * * *"
       prompt: "Check services and alert if down."
+
+dream_mode:
+  enabled: true
+  time: "3:00"                   # local time (converted to cron)
+
+auto_update:
+  enabled: true
+  mode: auto                     # auto | notify | manual
+  check_interval: "17 */6 * * *"
 ```
 
 Environment variables are substituted using `${VAR_NAME}` syntax.
@@ -395,21 +492,45 @@ Environment variables are substituted using `${VAR_NAME}` syntax.
 ## CLI Reference
 
 ```bash
+# Chat / serve
 openagent chat                         # interactive chat
-openagent chat -m zhipu                # use specific provider
+openagent chat -m zhipu                # use a specific provider
 openagent chat --model-id glm-4-flash  # override model ID
 openagent chat -s session-123          # resume session
-openagent serve                        # start all channels + scheduler
-openagent serve -ch telegram           # start specific channel
+openagent serve                        # start agent + channels + scheduler + aux services
+openagent serve -ch telegram           # only a specific channel
+
+# Doctor & setup
+openagent doctor                       # environment report
+openagent setup                        # install as OS service only
+openagent setup --with-docker          # + install Docker (Linux automated, Mac/Win brew/winget)
+openagent setup --pull-images          # + pre-pull images for enabled aux services
+openagent setup --full                 # everything (same as `install`)
+openagent install                      # alias of `setup --full`
+openagent uninstall                    # remove the OS service
+openagent status                       # OS service status
+
+# Auxiliary services
+openagent services status              # report each aux service (Obsidian web, ...)
+openagent services start
+openagent services stop
+
+# Scheduled tasks
 openagent task add -n "name" -c "cron" -p "prompt"
 openagent task list
 openagent task remove <id>
+openagent task enable <id>
+openagent task disable <id>
+
+# Updates
+openagent update                       # manual pip upgrade from PyPI
+
+# MCP
 openagent mcp list                     # list connected MCP tools
-openagent install                      # install as system service
-openagent uninstall                    # remove system service
-openagent status                       # check service status
-openagent -c custom.yaml serve        # use custom config file
-openagent -v serve                     # verbose/debug mode
+
+# Globals
+openagent -c custom.yaml serve         # custom config file
+openagent -v serve                     # verbose/debug logging
 ```
 
 ---
