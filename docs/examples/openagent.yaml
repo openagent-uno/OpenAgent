@@ -132,6 +132,39 @@ channels:
       - "YOUR_TELEGRAM_USER_ID"        # owner
       - "ANOTHER_TELEGRAM_USER_ID"     # optional second user
 
+  # Discord bot. Parity with Telegram on commands (/new /stop /status
+  # /queue /help /usage), plus native slash commands and an ⏹ Stop button
+  # on the live status message.
+  #
+  # Security: allowed_users is MANDATORY — the channel refuses to start
+  # without it. Unauthorized messages are ignored in silence (no reply,
+  # no typing indicator) so the bot gives zero feedback to probers in
+  # public servers.
+  #
+  # Usage modes (mix and match):
+  #   - DM only (like Telegram): set dm_only: true and leave the rest empty.
+  #   - DM + mention in any server: default — no extra config needed.
+  #   - Limit to specific servers: set allowed_guilds.
+  #   - Dedicated channel (Slack-style): put the channel ID in
+  #     listen_channels and the bot will answer every message there, no
+  #     mention required.
+  discord:
+    token: ${DISCORD_BOT_TOKEN}
+    allowed_users:
+      - "YOUR_DISCORD_USER_ID"         # e.g. "123456789012345678"
+    # allowed_guilds: []               # [] = any server the bot was invited to
+    # listen_channels: []              # [] = mention required in servers
+    # dm_only: false                   # true = ignore all servers, DMs only
+
+  # WhatsApp via Green API. No message editing and no inline buttons, so
+  # live status updates and a stop button aren't available — users cancel
+  # with the /stop text command.
+  # whatsapp:
+  #   green_api_id: ${GREEN_API_ID}
+  #   green_api_token: ${GREEN_API_TOKEN}
+  #   allowed_users:
+  #     - "391234567890"                # phone number, no @c.us suffix
+
 # Auxiliary services run alongside the agent in the same lifecycle.
 services:
   # Syncthing keeps the vault folder in sync with your laptop so you can
