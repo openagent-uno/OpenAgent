@@ -38,6 +38,18 @@ export default function App() {
     return <ConnectionScreen onConnect={setConnection} />;
   }
 
+  async function handleDisconnect() {
+    const activeConnection = connection;
+    if (activeConnection?.tunnelId && window.openAgentDesktop?.ssh) {
+      try {
+        await window.openAgentDesktop.ssh.closeTunnel(activeConnection.tunnelId);
+      } catch {
+        // Ignore tunnel cleanup failures during manual disconnect.
+      }
+    }
+    setConnection(null);
+  }
+
   return (
     <SafeAreaView style={styles.root}>
       <View style={styles.sidebar}>
@@ -52,7 +64,9 @@ export default function App() {
             <Text style={styles.navButtonText}>{item.toUpperCase()}</Text>
           </TouchableOpacity>
         ))}
-        <TouchableOpacity style={styles.disconnectButton} onPress={() => setConnection(null)}>
+        <TouchableOpacity style={styles.disconnectButton} onPress={() => {
+          void handleDisconnect();
+        }}>
           <Text style={styles.disconnectText}>Disconnect</Text>
         </TouchableOpacity>
       </View>

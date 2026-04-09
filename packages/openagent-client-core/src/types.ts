@@ -4,6 +4,7 @@ export interface ConnectionProfile {
   label: string;
   baseUrl: string;
   mode: ConnectionMode;
+  tunnelId?: string;
   ssh?: {
     host: string;
     user?: string;

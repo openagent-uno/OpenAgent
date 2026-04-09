@@ -20,9 +20,22 @@ export function ConnectionScreen({ onConnect }: Props) {
 
   const isDesktop = Boolean(window.openAgentDesktop?.isDesktop);
 
+  async function waitForHealth(baseUrl: string) {
+    const client = new OpenAgentClient(baseUrl);
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        return await client.health();
+      } catch (error) {
+        lastError = error;
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    }
+    throw lastError instanceof Error ? lastError : new Error(String(lastError ?? "Connection failed"));
+  }
+
   async function verifyAndConnect(profile: ConnectionProfile) {
-    const client = new OpenAgentClient(profile.baseUrl);
-    const health = await client.health();
+    const health = await waitForHealth(profile.baseUrl);
     setStatus(`Connected to ${health.configPath}`);
     onConnect(profile);
   }
@@ -40,6 +53,7 @@ export function ConnectionScreen({ onConnect }: Props) {
   }
 
   async function handleRemoteConnect() {
+    let tunnelId: string | undefined;
     try {
       let nextBaseUrl = baseUrl;
       const ssh = mode === "remote" ? window.openAgentDesktop?.ssh : undefined;
@@ -52,6 +66,7 @@ export function ConnectionScreen({ onConnect }: Props) {
           remotePort: Number(remotePort || "8765"),
           identityFile: identityFile || undefined,
         });
+        tunnelId = result.id;
         nextBaseUrl = `http://127.0.0.1:${result.localPort}`;
         setStatus(`SSH tunnel ready on ${nextBaseUrl}`);
       }
@@ -59,6 +74,7 @@ export function ConnectionScreen({ onConnect }: Props) {
         label: label || `Remote ${host}`,
         mode: "remote",
         baseUrl: nextBaseUrl,
+        tunnelId,
         ssh: host
           ? {
               host,
@@ -71,6 +87,13 @@ export function ConnectionScreen({ onConnect }: Props) {
           : undefined,
       });
     } catch (error) {
+      if (tunnelId && window.openAgentDesktop?.ssh) {
+        try {
+          await window.openAgentDesktop.ssh.closeTunnel(tunnelId);
+        } catch {
+          // Ignore tunnel cleanup failures after a connect error.
+        }
+      }
       setStatus(error instanceof Error ? error.message : String(error));
     }
   }
