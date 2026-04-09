@@ -33,12 +33,13 @@ class ClaudeCLI(BaseModel):
         self.permission_mode = permission_mode
         self.mcp_servers: dict[str, dict] = mcp_servers or {}
         self._session_id: str | None = None
+        self._session_map: dict[str, str] = {}
 
     def set_mcp_servers(self, servers: dict[str, dict]) -> None:
         """Set MCP server configs. Called by Agent during initialization."""
         self.mcp_servers = servers
 
-    def _build_options(self) -> dict[str, Any]:
+    def _build_options(self, session_id: str | None = None) -> dict[str, Any]:
         """Build ClaudeAgentOptions kwargs."""
         from claude_agent_sdk import ClaudeAgentOptions
 
@@ -52,8 +53,13 @@ class ClaudeCLI(BaseModel):
         if self.mcp_servers:
             opts["mcp_servers"] = self.mcp_servers
 
-        if self._session_id:
-            opts["resume"] = self._session_id
+        resume_id = None
+        if session_id:
+            resume_id = self._session_map.get(session_id)
+        elif self._session_id:
+            resume_id = self._session_id
+        if resume_id:
+            opts["resume"] = resume_id
 
         return opts
 
@@ -61,6 +67,7 @@ class ClaudeCLI(BaseModel):
         self,
         prompt: str,
         opts: dict,
+        session_id: str | None = None,
         on_status: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> str:
         """Run SDK query with retry on session errors."""
@@ -75,7 +82,10 @@ class ClaudeCLI(BaseModel):
                     if isinstance(message, SystemMessage) and hasattr(message, 'data'):
                         data = message.data if isinstance(message.data, dict) else {}
                         if 'session_id' in data:
-                            self._session_id = data['session_id']
+                            sdk_session_id = data['session_id']
+                            self._session_id = sdk_session_id
+                            if session_id:
+                                self._session_map[session_id] = sdk_session_id
 
                     # Detect tool use from SDK stream and emit status updates
                     if isinstance(message, AssistantMessage) and on_status:
@@ -100,7 +110,10 @@ class ClaudeCLI(BaseModel):
                 # If session resume failed, reset and retry without resume
                 if self._session_id and attempt == 0:
                     logger.info("Resetting session and retrying...")
-                    self._session_id = None
+                    if session_id:
+                        self._session_map.pop(session_id, None)
+                    else:
+                        self._session_id = None
                     opts.pop("resume", None)
                     continue
 
@@ -113,6 +126,7 @@ class ClaudeCLI(BaseModel):
         messages: list[dict[str, Any]],
         system: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
         on_status: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> ModelResponse:
         prompt_parts = []
@@ -127,9 +141,14 @@ class ClaudeCLI(BaseModel):
                 prompt_parts.append(f"[Previous assistant response] {content}")
 
         prompt = "\n\n".join(prompt_parts)
-        opts = self._build_options()
+        opts = self._build_options(session_id=session_id)
 
-        result_text = await self._query_with_retry(prompt, opts, on_status=on_status)
+        result_text = await self._query_with_retry(
+            prompt,
+            opts,
+            session_id=session_id,
+            on_status=on_status,
+        )
         return ModelResponse(content=result_text)
 
     async def stream(
@@ -137,6 +156,7 @@ class ClaudeCLI(BaseModel):
         messages: list[dict[str, Any]],
         system: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
     ) -> AsyncIterator[str]:
         from claude_agent_sdk import query, ClaudeAgentOptions, ResultMessage, SystemMessage, AssistantMessage
 
@@ -148,7 +168,7 @@ class ClaudeCLI(BaseModel):
                 prompt_parts.append(msg.get("content", ""))
 
         prompt = "\n\n".join(prompt_parts)
-        opts = self._build_options()
+        opts = self._build_options(session_id=session_id)
         options = ClaudeAgentOptions(**opts)
 
         try:
@@ -156,7 +176,10 @@ class ClaudeCLI(BaseModel):
                 if isinstance(message, SystemMessage) and hasattr(message, 'data'):
                     data = message.data if isinstance(message.data, dict) else {}
                     if 'session_id' in data:
-                        self._session_id = data['session_id']
+                        sdk_session_id = data['session_id']
+                        self._session_id = sdk_session_id
+                        if session_id:
+                            self._session_map[session_id] = sdk_session_id
 
                 if isinstance(message, AssistantMessage):
                     for block in (message.content or []):

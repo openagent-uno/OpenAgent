@@ -1,0 +1,12 @@
+{
+  "name": "@openagent/control-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./main.cjs",
+  "scripts": {
+    "dev": "electron ./main.cjs"
+  },
+  "dependencies": {
+    "electron": "^36.0.0"
+  }
+}

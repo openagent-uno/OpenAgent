@@ -3,6 +3,8 @@
 #
 # Usage: ./scripts/stop.sh
 
+RUNTIME_ROOT="${OPENAGENT_HOME:-$HOME/.openagent}"
+
 echo "=== OpenAgent Stop ==="
 
 # Kill processes

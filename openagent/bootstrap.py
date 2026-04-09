@@ -24,6 +24,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from openagent.runtime import default_config_path, default_vault_path
+
 logger = logging.getLogger(__name__)
 
 
@@ -167,7 +169,7 @@ def check_openagent_config(config_path: Path) -> Check:
             "config",
             "warn",
             f"no openagent.yaml at {config_path}",
-            "Create one by copying an example from docs/ or passing --config.",
+            f"Create one at {default_config_path()} or pass --config.",
         )
     try:
         import yaml
@@ -179,7 +181,7 @@ def check_openagent_config(config_path: Path) -> Check:
 
 
 def check_memory_vault(config: dict) -> Check:
-    mem = config.get("memory", {}).get("vault_path") or "./memories"
+    mem = config.get("memory", {}).get("vault_path") or str(default_vault_path())
     p = Path(mem).expanduser()
     if p.exists():
         count = len(list(p.glob("*.md")))

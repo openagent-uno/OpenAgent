@@ -19,6 +19,8 @@ import sys
 import textwrap
 from pathlib import Path
 
+from openagent.runtime import default_config_path, default_log_dir, get_runtime_paths
+
 SERVICE_NAME = "com.openagent.serve"
 SERVICE_LABEL = "OpenAgent"
 SYSTEMD_UNIT = "openagent.service"
@@ -31,17 +33,24 @@ def _get_python() -> str:
 
 def _get_openagent_cmd() -> list[str]:
     """Get the command to run ``openagent serve``."""
-    return [_get_python(), "-m", "openagent.cli", "serve"]
+    return [
+        _get_python(),
+        "-m",
+        "openagent.cli",
+        "-c",
+        str(default_config_path()),
+        "serve",
+    ]
 
 
 def _get_working_dir() -> str:
-    """Get the working directory (where openagent.yaml lives)."""
-    return os.getcwd()
+    """Get the working directory for the managed OpenAgent runtime."""
+    return str(get_runtime_paths().root)
 
 
 def _get_log_dir() -> Path:
     """Get/create log directory."""
-    log_dir = Path.home() / ".openagent" / "logs"
+    log_dir = default_log_dir()
     log_dir.mkdir(parents=True, exist_ok=True)
     return log_dir
 
@@ -57,6 +66,10 @@ def _get_env_path() -> str:
 
 def _macos_plist_path() -> Path:
     return Path.home() / "Library" / "LaunchAgents" / f"{SERVICE_NAME}.plist"
+
+
+def _macos_service_target() -> str:
+    return f"gui/{os.getuid()}/{SERVICE_NAME}"
 
 
 def _macos_install() -> str:
@@ -133,6 +146,32 @@ def _macos_status() -> str:
     if result.returncode == 0:
         return f"Running\n{result.stdout.strip()}"
     return "Not running"
+
+
+def _macos_start() -> str:
+    path = _macos_plist_path()
+    if not path.exists():
+        raise RuntimeError(f"Service file not found: {path}")
+    subprocess.run(["launchctl", "load", str(path)], capture_output=True, check=False)
+    subprocess.run(["launchctl", "start", SERVICE_NAME], check=True)
+    return "Service started"
+
+
+def _macos_stop() -> str:
+    subprocess.run(["launchctl", "stop", SERVICE_NAME], capture_output=True, check=False)
+    return "Service stopped"
+
+
+def _macos_restart() -> str:
+    path = _macos_plist_path()
+    if not path.exists():
+        raise RuntimeError(f"Service file not found: {path}")
+    subprocess.run(
+        ["launchctl", "kickstart", "-k", _macos_service_target()],
+        capture_output=True,
+        check=False,
+    )
+    return "Service restarted"
 
 
 # ---------------------------------------------------------------------------
@@ -213,12 +252,27 @@ def _linux_status() -> str:
     return result.stdout.strip() if result.stdout else "Not running"
 
 
+def _linux_start() -> str:
+    subprocess.run(["systemctl", "--user", "start", SYSTEMD_UNIT], check=True)
+    return "Service started"
+
+
+def _linux_stop() -> str:
+    subprocess.run(["systemctl", "--user", "stop", SYSTEMD_UNIT], check=True)
+    return "Service stopped"
+
+
+def _linux_restart() -> str:
+    subprocess.run(["systemctl", "--user", "restart", SYSTEMD_UNIT], check=True)
+    return "Service restarted"
+
+
 # ---------------------------------------------------------------------------
 # Windows  (Task Scheduler + .bat wrapper)
 # ---------------------------------------------------------------------------
 
 def _windows_bat_path() -> Path:
-    return Path.home() / ".openagent" / "openagent-serve.bat"
+    return get_runtime_paths().root / "openagent-serve.bat"
 
 
 def _windows_install() -> str:
@@ -273,14 +327,51 @@ def _windows_status() -> str:
     return "Not installed"
 
 
+def _windows_start() -> str:
+    subprocess.run(["schtasks", "/Run", "/TN", SERVICE_LABEL], check=True)
+    return "Service started"
+
+
+def _windows_stop() -> str:
+    subprocess.run(["schtasks", "/End", "/TN", SERVICE_LABEL], capture_output=True, check=False)
+    return "Service stopped"
+
+
+def _windows_restart() -> str:
+    subprocess.run(["schtasks", "/End", "/TN", SERVICE_LABEL], capture_output=True, check=False)
+    subprocess.run(["schtasks", "/Run", "/TN", SERVICE_LABEL], check=True)
+    return "Service restarted"
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 _DISPATCH = {
-    "Darwin": (_macos_install, _macos_uninstall, _macos_status),
-    "Linux":  (_linux_install, _linux_uninstall, _linux_status),
-    "Windows": (_windows_install, _windows_uninstall, _windows_status),
+    "Darwin": {
+        "install": _macos_install,
+        "uninstall": _macos_uninstall,
+        "status": _macos_status,
+        "start": _macos_start,
+        "stop": _macos_stop,
+        "restart": _macos_restart,
+    },
+    "Linux": {
+        "install": _linux_install,
+        "uninstall": _linux_uninstall,
+        "status": _linux_status,
+        "start": _linux_start,
+        "stop": _linux_stop,
+        "restart": _linux_restart,
+    },
+    "Windows": {
+        "install": _windows_install,
+        "uninstall": _windows_uninstall,
+        "status": _windows_status,
+        "start": _windows_start,
+        "stop": _windows_stop,
+        "restart": _windows_restart,
+    },
 }
 
 
@@ -294,20 +385,32 @@ def _get_handlers():
 
 def install_service() -> str:
     """Install OpenAgent as a system service. Returns status message."""
-    install_fn, _, _ = _get_handlers()
-    return install_fn()
+    return _get_handlers()["install"]()
 
 
 def uninstall_service() -> str:
     """Remove the OpenAgent system service."""
-    _, uninstall_fn, _ = _get_handlers()
-    return uninstall_fn()
+    return _get_handlers()["uninstall"]()
 
 
 def get_service_status() -> str:
     """Check if the OpenAgent service is running."""
-    _, _, status_fn = _get_handlers()
-    return status_fn()
+    return _get_handlers()["status"]()
+
+
+def start_service() -> str:
+    """Start the OpenAgent system service."""
+    return _get_handlers()["start"]()
+
+
+def stop_service() -> str:
+    """Stop the OpenAgent system service."""
+    return _get_handlers()["stop"]()
+
+
+def restart_service() -> str:
+    """Restart the OpenAgent system service."""
+    return _get_handlers()["restart"]()
 
 
 def setup_service() -> dict[str, str]:

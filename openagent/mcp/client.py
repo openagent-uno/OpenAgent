@@ -19,6 +19,8 @@ from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from mcp.client.streamable_http import streamablehttp_client
 
+from openagent.runtime import default_vault_path
+
 logger = logging.getLogger(__name__)
 
 # ── Built-in MCPs (custom, ship under mcps/) ──
@@ -254,7 +256,7 @@ def _resolve_default_entry(
         args = [os.path.expanduser("~")]
     # Expand vault path for MCPVault
     if name == "vault" and not args:
-        args = [os.path.join(os.getcwd(), "memories")]
+        args = [str(default_vault_path())]
 
     return MCPTools(
         name=entry.get("name", ""),

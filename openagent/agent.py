@@ -3,38 +3,34 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, AsyncIterator, Callable, Awaitable
+import re
+from dataclasses import dataclass, field
+from typing import Any, AsyncIterator, Awaitable, Callable
 
-from openagent.models.base import BaseModel, ModelResponse
 from openagent.memory.db import MemoryDB
 from openagent.mcp.client import MCPRegistry, MCPTools
+from openagent.models.base import BaseModel
 from openagent.prompts import FRAMEWORK_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
 MAX_TOOL_ITERATIONS = 10
+_TOOL_STATUS_RE = re.compile(r"^Using (?P<name>.+?)\.\.\.$")
 
-# Status callback type: async def on_status(status: str) -> None
 StatusCallback = Callable[[str], Awaitable[None]]
 
 
+@dataclass
+class AgentEvent:
+    type: str
+    data: dict[str, Any] = field(default_factory=dict)
+
+
+EventCallback = Callable[[AgentEvent], Awaitable[None]]
+
+
 class Agent:
-    """Main agent class. Ties together a model, MCP tools, and memory.
-
-    Session history is handled by the Claude Agent SDK (resume=session_id).
-    Long-term memory is handled by MCPVault (Obsidian vault).
-    SQLite (MemoryDB) is only used for scheduled tasks.
-
-    Usage:
-        agent = Agent(
-            name="assistant",
-            model=ClaudeAPI(model="claude-sonnet-4-6"),
-            system_prompt="You are a helpful assistant.",
-            mcp_tools=[MCPTools(command=["npx", "..."])],
-            memory=MemoryDB("agent.db"),
-        )
-        response = await agent.run("Hello!", user_id="user-1")
-    """
+    """Main agent class. Ties together a model, MCP tools, and memory."""
 
     def __init__(
         self,
@@ -49,7 +45,6 @@ class Agent:
         self.model = model
         self.system_prompt = system_prompt
 
-        # MCP
         if mcp_registry:
             self._mcp = mcp_registry
         else:
@@ -57,7 +52,6 @@ class Agent:
             for tool in (mcp_tools or []):
                 self._mcp.add(tool)
 
-        # Memory (SQLite for scheduled tasks only; knowledge base in Obsidian vault via MCPVault)
         if isinstance(memory, str):
             self._db = MemoryDB(memory)
         elif isinstance(memory, MemoryDB):
@@ -75,8 +69,8 @@ class Agent:
         if self._db:
             await self._db.connect()
 
-        # For Claude CLI: pass MCP server configs
         from openagent.models.claude_cli import ClaudeCLI
+
         if isinstance(self.model, ClaudeCLI):
             mcp_configs = self._build_cli_mcp_configs()
             if mcp_configs:
@@ -85,18 +79,7 @@ class Agent:
         self._initialized = True
 
     def _build_cli_mcp_configs(self) -> dict[str, dict]:
-        """Build MCP server configs for the Claude Agent SDK.
-
-        Supports stdio (command), SSE (url), and HTTP (url) MCP servers.
-
-        Claude CLI silently drops stdio MCP servers whose `command` cannot
-        be resolved in the subprocess's PATH. When OpenAgent runs under a
-        systemd unit, `$PATH` is minimal and relative names like `firebase`
-        or `github-mcp-server` stop resolving — even when `shutil.which()`
-        finds them at process startup. To avoid this footgun, every stdio
-        command is resolved to an absolute path here before being handed
-        off to the SDK.
-        """
+        """Build MCP server configs for the Claude Agent SDK."""
         import os
         import shutil
 
@@ -106,8 +89,6 @@ class Agent:
                 full_cmd = server.command + server.args
                 cmd_name = full_cmd[0]
 
-                # Resolve to absolute path so Claude CLI doesn't silently
-                # drop the server when its minimal PATH can't find it.
                 if not os.path.isabs(cmd_name):
                     resolved = shutil.which(cmd_name)
                     if resolved:
@@ -116,10 +97,11 @@ class Agent:
                         logger.warning(
                             "MCP '%s': command %r not found on PATH — "
                             "Claude CLI will likely drop this server",
-                            server.name, cmd_name,
+                            server.name,
+                            cmd_name,
                         )
 
-                entry: dict = {
+                entry: dict[str, Any] = {
                     "command": cmd_name,
                     "args": full_cmd[1:],
                 }
@@ -127,16 +109,16 @@ class Agent:
                 env = dict(server.env) if server.env else {}
 
                 if server.name == "messaging":
-                    for var in ("TELEGRAM_BOT_TOKEN", "DISCORD_BOT_TOKEN", "GREEN_API_ID", "GREEN_API_TOKEN"):
+                    for var in (
+                        "TELEGRAM_BOT_TOKEN",
+                        "DISCORD_BOT_TOKEN",
+                        "GREEN_API_ID",
+                        "GREEN_API_TOKEN",
+                    ):
                         val = os.environ.get(var)
                         if val:
                             env[var] = val
 
-                # The scheduler MCP needs to point at the same SQLite file
-                # as the in-process Scheduler. _resolve_default_entry already
-                # sets this when MCPRegistry was built with db_path, but fall
-                # back to the agent's own DB path here so alternative wiring
-                # paths (e.g. direct MCPTools instantiation) still work.
                 if server.name == "scheduler" and "OPENAGENT_DB_PATH" not in env:
                     if self._db and getattr(self._db, "db_path", None):
                         env["OPENAGENT_DB_PATH"] = os.path.abspath(self._db.db_path)
@@ -145,7 +127,6 @@ class Agent:
                     entry["env"] = env
 
                 configs[server.name] = entry
-
             elif server.url:
                 configs[server.name] = {"type": "http", "url": server.url}
 
@@ -165,81 +146,116 @@ class Agent:
         session_id: str | None = None,
         attachments: list[dict] | None = None,
         on_status: StatusCallback | None = None,
+        on_event: EventCallback | None = None,
     ) -> str:
-        """Run the agent with a user message. Returns the final text response.
+        """Run the agent with a user message and return the final response."""
+        del user_id  # reserved for future routing/telemetry use
 
-        Args:
-            session_id: Kept for API compatibility. Session continuity is
-                handled by the Claude Agent SDK's resume=session_id.
-            on_status: Optional async callback for live status updates.
-                Called with status strings like "Thinking...", "Using shell_exec...", etc.
-                Channels use this to update a live status message.
-        """
         if not self.model:
             raise RuntimeError("No model configured. Set agent.model before calling run().")
 
         await self.initialize()
 
-        async def _status(msg: str) -> None:
+        active_inferred_tool: str | None = None
+
+        async def _emit(event_type: str, **data: Any) -> None:
+            if on_event:
+                try:
+                    await on_event(AgentEvent(type=event_type, data=data))
+                except Exception:
+                    pass
+
+        async def _status(msg: str, *, infer_tool: bool = True) -> None:
+            nonlocal active_inferred_tool
+
             if on_status:
                 try:
                     await on_status(msg)
                 except Exception:
                     pass
 
+            await _emit("status", status=msg)
+
+            if not infer_tool:
+                return
+
+            match = _TOOL_STATUS_RE.match(msg.strip())
+            if match:
+                tool_name = match.group("name")
+                if active_inferred_tool and active_inferred_tool != tool_name:
+                    await _emit(
+                        "tool_finished",
+                        tool_name=active_inferred_tool,
+                        inferred=True,
+                    )
+                if active_inferred_tool != tool_name:
+                    await _emit(
+                        "tool_started",
+                        tool_name=tool_name,
+                        inferred=True,
+                    )
+                active_inferred_tool = tool_name
+            elif active_inferred_tool:
+                await _emit(
+                    "tool_finished",
+                    tool_name=active_inferred_tool,
+                    inferred=True,
+                )
+                active_inferred_tool = None
+
         try:
-            return await self._run_inner(message, attachments, _status)
+            result = await self._run_inner(
+                message=message,
+                session_id=session_id,
+                attachments=attachments,
+                emit=_emit,
+                status=_status,
+            )
+            if active_inferred_tool:
+                await _emit(
+                    "tool_finished",
+                    tool_name=active_inferred_tool,
+                    inferred=True,
+                )
+            return result
         except BaseException as e:
-            logger.error(f"Agent.run() fatal error: {e}")
+            logger.error("Agent.run() fatal error: %s", e)
+            if active_inferred_tool:
+                await _emit(
+                    "tool_finished",
+                    tool_name=active_inferred_tool,
+                    inferred=True,
+                )
+            await _emit("run_error", error=str(e))
             return f"Error: {e}"
 
     async def _run_inner(
         self,
         message: str,
+        session_id: str | None,
         attachments: list[dict] | None,
-        _status,
+        emit,
+        status,
     ) -> str:
-        """Inner run logic, wrapped by run() for crash protection."""
-        await _status("Loading context...")
+        await emit("run_started", message=message, session_id=session_id)
+        await status("Loading context...", infer_tool=False)
 
-        # Combine OpenAgent's framework-level guidelines with the user's
-        # project-specific system prompt from openagent.yaml.
         system = self._combined_system_prompt()
-
-        # Build messages. For each attachment we include the LOCAL PATH
-        # in the prompt so the agent can actually read the file — Claude
-        # Code's Read tool handles images natively, and MCP tools like
-        # filesystem/editor can open text files. Without the path, the
-        # agent would see only "[Attached image: photo.jpg]" and spin
-        # trying to locate the file.
-        if attachments:
-            lines = ["The user attached the following files:"]
-            for a in attachments:
-                a_type = a.get("type", "file")
-                a_name = a.get("filename", "")
-                a_path = a.get("path", "")
-                if a_path:
-                    lines.append(f"- {a_type}: {a_name} — local path: {a_path}")
-                else:
-                    lines.append(f"- {a_type}: {a_name}")
-            lines.append(
-                "Use the Read tool (or an MCP tool) with the local path to "
-                "inspect each file. For images, Read returns the image "
-                "content for you to see directly."
-            )
-            att_block = "\n".join(lines)
-            message = f"{att_block}\n\n{message}" if message else att_block
-
-        messages: list[dict[str, Any]] = [{"role": "user", "content": message}]
-
+        prepared_message = self._prepare_message(message, attachments)
+        messages: list[dict[str, Any]] = [{"role": "user", "content": prepared_message}]
         tools = self._mcp.all_tools() or None
 
-        await _status("Thinking...")
+        await status("Thinking...", infer_tool=False)
 
-        # Tool-use loop
         response = None
         for iteration in range(MAX_TOOL_ITERATIONS):
-            response = await self.model.generate(messages, system=system, tools=tools, on_status=_status)
+            response = await self.model.generate(
+                messages,
+                system=system,
+                tools=tools,
+                session_id=session_id,
+                on_status=status,
+            )
 
             if response.tool_calls:
                 assistant_msg: dict[str, Any] = {
@@ -253,27 +269,84 @@ class Agent:
                 messages.append(assistant_msg)
 
                 for tc in response.tool_calls:
-                    await _status(f"Using {tc.name}...")
+                    await emit(
+                        "tool_started",
+                        tool_name=tc.name,
+                        arguments=tc.arguments,
+                        tool_call_id=tc.id,
+                        inferred=False,
+                    )
+                    await status(f"Using {tc.name}...", infer_tool=False)
 
                     try:
                         result = await self._mcp.call_tool(tc.name, tc.arguments)
                     except Exception as e:
                         result = f"Error calling tool {tc.name}: {e}"
                         logger.error(result)
+                        await emit(
+                            "tool_failed",
+                            tool_name=tc.name,
+                            arguments=tc.arguments,
+                            tool_call_id=tc.id,
+                            error=str(e),
+                            result=result,
+                        )
+                    else:
+                        await emit(
+                            "tool_finished",
+                            tool_name=tc.name,
+                            arguments=tc.arguments,
+                            tool_call_id=tc.id,
+                            result=result,
+                            inferred=False,
+                        )
 
-                    tool_msg = {
-                        "role": "tool",
-                        "content": result,
-                        "tool_call_id": tc.id,
-                    }
-                    messages.append(tool_msg)
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "content": result,
+                            "tool_call_id": tc.id,
+                        }
+                    )
 
                 if iteration < MAX_TOOL_ITERATIONS - 1:
-                    await _status("Thinking...")
-            else:
-                return response.content
+                    await status("Thinking...", infer_tool=False)
+                continue
 
-        return response.content if response else "I wasn't able to complete the request."
+            final_content = response.content or ""
+            if final_content:
+                await emit("assistant_delta", delta=final_content)
+                await emit("assistant_message", content=final_content)
+            await emit("run_finished", content=final_content)
+            return final_content
+
+        final_content = response.content if response else "I wasn't able to complete the request."
+        if final_content:
+            await emit("assistant_delta", delta=final_content)
+            await emit("assistant_message", content=final_content)
+        await emit("run_finished", content=final_content)
+        return final_content
+
+    def _prepare_message(self, message: str, attachments: list[dict] | None) -> str:
+        if not attachments:
+            return message
+
+        lines = ["The user attached the following files:"]
+        for attachment in attachments:
+            a_type = attachment.get("type", "file")
+            a_name = attachment.get("filename", "")
+            a_path = attachment.get("path", "")
+            if a_path:
+                lines.append(f"- {a_type}: {a_name} — local path: {a_path}")
+            else:
+                lines.append(f"- {a_type}: {a_name}")
+        lines.append(
+            "Use the Read tool (or an MCP tool) with the local path to "
+            "inspect each file. For images, Read returns the image content "
+            "for you to see directly."
+        )
+        att_block = "\n".join(lines)
+        return f"{att_block}\n\n{message}" if message else att_block
 
     def _combined_system_prompt(self) -> str:
         """Prepend the framework-level prompt to the user's system prompt."""
@@ -293,6 +366,8 @@ class Agent:
         session_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Stream the agent's response. Does not support tool use in streaming mode."""
+        del user_id
+
         if not self.model:
             raise RuntimeError("No model configured.")
 
@@ -301,7 +376,11 @@ class Agent:
         system = self._combined_system_prompt()
         messages: list[dict[str, Any]] = [{"role": "user", "content": message}]
 
-        async for chunk in self.model.stream(messages, system=system):
+        async for chunk in self.model.stream(
+            messages,
+            system=system,
+            session_id=session_id,
+        ):
             yield chunk
 
     async def __aenter__(self):

@@ -15,6 +15,7 @@ from rich.table import Table
 from openagent.config import load_config
 from openagent.memory.db import MemoryDB
 from openagent.mcp.client import MCPRegistry
+from openagent.runtime import default_db_path, default_vault_path, resolve_config_path
 from openagent.server import (
     AgentServer,
     _build_agent,
@@ -26,13 +27,13 @@ console = Console()
 
 
 @click.group()
-@click.option("--config", "-c", default="openagent.yaml", help="Config file path")
+@click.option("--config", "-c", default=None, help="Config file path")
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging")
 @click.pass_context
-def main(ctx, config: str, verbose: bool):
+def main(ctx, config: str | None, verbose: bool):
     """OpenAgent - Simplified LLM agent framework."""
     ctx.ensure_object(dict)
-    ctx.obj["config_path"] = config
+    ctx.obj["config_path"] = str(resolve_config_path(config))
     ctx.obj["config"] = load_config(config)
 
     level = logging.DEBUG if verbose else logging.WARNING
@@ -106,7 +107,11 @@ def serve(ctx, channel: tuple[str, ...]):
     """Start agent, channels, scheduler and aux services."""
     config = ctx.obj["config"]
     only = list(channel) if channel else None
-    server = AgentServer.from_config(config, only_channels=only)
+    server = AgentServer.from_config(
+        config,
+        only_channels=only,
+        config_path=ctx.obj["config_path"],
+    )
 
     async def _serve():
         async with server:
@@ -115,6 +120,8 @@ def serve(ctx, channel: tuple[str, ...]):
                 active.extend(ch.name for ch in server.channels)
             if server._scheduler is not None:
                 active.append("scheduler")
+            if server._api_server is not None:
+                active.append("api")
             if len(server.aux_services) > 0:
                 active.extend(svc.name for svc in server.aux_services)
 
@@ -150,7 +157,7 @@ def task_group(ctx):
 def task_add(ctx, name: str, cron: str, prompt: str):
     """Add a new scheduled task."""
     config = ctx.obj["config"]
-    db_path = config.get("memory", {}).get("db_path", "openagent.db")
+    db_path = config.get("memory", {}).get("db_path", str(default_db_path()))
 
     async def _add():
         db = MemoryDB(db_path)
@@ -172,7 +179,7 @@ def task_add(ctx, name: str, cron: str, prompt: str):
 def task_list(ctx):
     """List all scheduled tasks."""
     config = ctx.obj["config"]
-    db_path = config.get("memory", {}).get("db_path", "openagent.db")
+    db_path = config.get("memory", {}).get("db_path", str(default_db_path()))
 
     async def _list():
         db = MemoryDB(db_path)
@@ -210,7 +217,7 @@ def task_list(ctx):
 def task_remove(ctx, task_id: str):
     """Remove a scheduled task by ID (prefix match)."""
     config = ctx.obj["config"]
-    db_path = config.get("memory", {}).get("db_path", "openagent.db")
+    db_path = config.get("memory", {}).get("db_path", str(default_db_path()))
 
     async def _remove():
         db = MemoryDB(db_path)
@@ -233,7 +240,7 @@ def task_remove(ctx, task_id: str):
 def task_enable(ctx, task_id: str):
     """Enable a scheduled task."""
     config = ctx.obj["config"]
-    db_path = config.get("memory", {}).get("db_path", "openagent.db")
+    db_path = config.get("memory", {}).get("db_path", str(default_db_path()))
 
     async def _enable():
         db = MemoryDB(db_path)
@@ -256,7 +263,7 @@ def task_enable(ctx, task_id: str):
 def task_disable(ctx, task_id: str):
     """Disable a scheduled task."""
     config = ctx.obj["config"]
-    db_path = config.get("memory", {}).get("db_path", "openagent.db")
+    db_path = config.get("memory", {}).get("db_path", str(default_db_path()))
 
     async def _disable():
         db = MemoryDB(db_path)
@@ -292,7 +299,7 @@ def mcp_cmd(ctx, action: str):
                 mcp_config,
                 include_defaults,
                 mcp_disable,
-                db_path=config.get("memory", {}).get("db_path", "openagent.db"),
+                db_path=config.get("memory", {}).get("db_path", str(default_db_path())),
             )
             await registry.connect_all()
             tools = registry.all_tools()
@@ -469,7 +476,7 @@ def setup_cmd(
         sync_cfg = (config.get("services") or {}).get("syncthing") or {}
         if sync_cfg.get("enabled"):
             mem_cfg = config.get("memory") or {}
-            vault = sync_cfg.get("vault_path") or mem_cfg.get("vault_path", "./memories")
+            vault = sync_cfg.get("vault_path") or mem_cfg.get("vault_path", str(default_vault_path()))
             folder_id = sync_cfg.get("folder_id", DEFAULT_FOLDER_ID)
             folder_label = sync_cfg.get("folder_label", DEFAULT_FOLDER_LABEL)
             gui_bind = sync_cfg.get("gui_bind", DEFAULT_GUI_BIND)
@@ -556,6 +563,55 @@ def status_cmd(ctx):
     from openagent.service import get_service_status
     status = get_service_status()
     console.print(status)
+
+
+@main.group("service")
+@click.pass_context
+def service_group(ctx):
+    """Manage the OS-level OpenAgent service."""
+    pass
+
+
+@service_group.command("install")
+def service_install_cmd():
+    from openagent.service import install_service
+
+    console.print(install_service())
+
+
+@service_group.command("uninstall")
+def service_uninstall_cmd():
+    from openagent.service import uninstall_service
+
+    console.print(uninstall_service())
+
+
+@service_group.command("start")
+def service_start_cmd():
+    from openagent.service import start_service
+
+    console.print(start_service())
+
+
+@service_group.command("stop")
+def service_stop_cmd():
+    from openagent.service import stop_service
+
+    console.print(stop_service())
+
+
+@service_group.command("restart")
+def service_restart_cmd():
+    from openagent.service import restart_service
+
+    console.print(restart_service())
+
+
+@service_group.command("status")
+def service_status_cmd():
+    from openagent.service import get_service_status
+
+    console.print(get_service_status())
 
 
 # ── Manual update ──

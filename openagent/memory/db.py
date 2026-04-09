@@ -16,6 +16,8 @@ from typing import Any
 
 import aiosqlite
 
+from openagent.runtime import default_db_path
+
 
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS scheduled_tasks (
@@ -37,7 +39,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_next_run ON scheduled_tasks(next_run);
 class MemoryDB:
     """SQLite storage for scheduled tasks."""
 
-    def __init__(self, db_path: str = "openagent.db"):
+    def __init__(self, db_path: str = str(default_db_path())):
         self.db_path = db_path
         self._conn: aiosqlite.Connection | None = None
 

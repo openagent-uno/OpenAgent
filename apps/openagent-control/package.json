@@ -1,0 +1,24 @@
+{
+  "name": "@openagent/control-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "web": "vite",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openagent/client-core": "file:../../packages/openagent-client-core",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-native": "0.84.0",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.0.4",
+    "vite": "^7.1.7"
+  }
+}

@@ -26,10 +26,11 @@ from urllib.parse import urlparse, parse_qs
 
 from mcp.client.auth import OAuthClientProvider
 from mcp.shared.auth import OAuthClientMetadata, OAuthClientInformationFull, OAuthToken
+from openagent.runtime import default_oauth_dir
 
 logger = logging.getLogger(__name__)
 
-OAUTH_DIR = Path.home() / ".openagent" / "oauth"
+OAUTH_DIR = default_oauth_dir()
 CALLBACK_PORT_RANGE = (18700, 18720)  # ports to try for OAuth callback
 
 

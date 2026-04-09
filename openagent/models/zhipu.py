@@ -96,6 +96,7 @@ class ZhipuGLM(BaseModel):
         messages: list[dict[str, Any]],
         system: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
         on_status=None,
     ) -> ModelResponse:
         kwargs: dict[str, Any] = {
@@ -134,6 +135,7 @@ class ZhipuGLM(BaseModel):
         messages: list[dict[str, Any]],
         system: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
     ) -> AsyncIterator[str]:
         kwargs: dict[str, Any] = {
             "model": self.model,

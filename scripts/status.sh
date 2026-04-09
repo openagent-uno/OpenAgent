@@ -5,7 +5,8 @@
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-LOG="$PROJECT_DIR/openagent.log"
+RUNTIME_ROOT="${OPENAGENT_HOME:-$HOME/.openagent}"
+LOG="$RUNTIME_ROOT/logs/openagent-screen.log"
 
 echo "=== OpenAgent Status ==="
 

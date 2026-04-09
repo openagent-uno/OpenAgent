@@ -18,9 +18,11 @@ import signal
 from typing import Awaitable, Callable
 
 from openagent.agent import Agent
-from openagent.config import build_model_from_config
+from openagent.api.server import AppAPIServer
+from openagent.config import build_model_from_config, load_config
 from openagent.mcp.client import MCPRegistry
 from openagent.memory.db import MemoryDB
+from openagent.runtime import default_db_path, default_vault_path, resolve_config_path
 from openagent.services.manager import ServiceManager
 
 logger = logging.getLogger(__name__)
@@ -104,7 +106,7 @@ def _build_agent(config: dict) -> Agent:
     mcp_disable = config.get("mcp_disable", [])
 
     memory_cfg = config.get("memory", {})
-    db_path = memory_cfg.get("db_path", "openagent.db")
+    db_path = memory_cfg.get("db_path", str(default_db_path()))
     db = MemoryDB(db_path)
 
     mcp_registry = MCPRegistry.from_config(
@@ -200,7 +202,7 @@ def _build_aux_services(config: dict) -> ServiceManager:
             DEFAULT_GUI_BIND,
         )
         memory_cfg = config.get("memory", {}) or {}
-        default_vault = memory_cfg.get("vault_path", "./memories")
+        default_vault = memory_cfg.get("vault_path", str(default_vault_path()))
         mgr.add(SyncthingService(
             vault_path=sync_cfg.get("vault_path", default_vault),
             folder_id=sync_cfg.get("folder_id", DEFAULT_FOLDER_ID),
@@ -226,22 +228,36 @@ class AgentServer:
         channels: list,
         aux_services: ServiceManager,
         config: dict,
+        config_path: str | None = None,
     ) -> None:
         self.agent = agent
         self.channels = channels
         self.aux_services = aux_services
         self.config = config
+        self.config_path = str(resolve_config_path(config_path))
 
         self._channel_tasks: list[asyncio.Task] = []
         self._scheduler = None
+        self._api_server: AppAPIServer | None = None
         self._stop_event: asyncio.Event | None = None
 
     @classmethod
-    def from_config(cls, config: dict, only_channels: list[str] | None = None) -> AgentServer:
+    def from_config(
+        cls,
+        config: dict,
+        only_channels: list[str] | None = None,
+        config_path: str | None = None,
+    ) -> AgentServer:
         agent = _build_agent(config)
         channels = _build_channels(agent, config, only=only_channels)
         aux = _build_aux_services(config)
-        return cls(agent=agent, channels=channels, aux_services=aux, config=config)
+        return cls(
+            agent=agent,
+            channels=channels,
+            aux_services=aux,
+            config=config,
+            config_path=config_path,
+        )
 
     # ── Lifecycle ──
 
@@ -260,7 +276,10 @@ class AgentServer:
         # 3. Scheduler (with dream mode + auto-update hooks)
         await self._start_scheduler()
 
-        # 4. Channels (each runs in its own supervised task)
+        # 4. App API
+        await self._start_api()
+
+        # 5. Channels (each runs in its own supervised task)
         for ch in self.channels:
             self._channel_tasks.append(asyncio.create_task(
                 ch.start(), name=f"channel:{ch.name}"
@@ -286,7 +305,15 @@ class AgentServer:
                 pass
         self._channel_tasks.clear()
 
-        # 3. Scheduler
+        # 3. App API
+        if self._api_server is not None:
+            try:
+                await self._api_server.stop()
+            except Exception as e:
+                logger.warning(f"API stop error: {e}")
+            self._api_server = None
+
+        # 4. Scheduler
         if self._scheduler is not None:
             try:
                 await self._scheduler.stop()
@@ -294,13 +321,13 @@ class AgentServer:
                 logger.warning(f"Scheduler stop error: {e}")
             self._scheduler = None
 
-        # 4. Agent
+        # 5. Agent
         try:
             await self.agent.shutdown()
         except Exception as e:
             logger.warning(f"Agent shutdown error: {e}")
 
-        # 5. Aux services last
+        # 6. Aux services last
         if len(self.aux_services) > 0:
             await self.aux_services.stop_all()
 
@@ -379,6 +406,19 @@ class AgentServer:
 
         await scheduler.start()
         self._scheduler = scheduler
+
+    async def _start_api(self) -> None:
+        api_cfg = self.config.get("api", {}) or {}
+        if not api_cfg.get("enabled", True):
+            return
+
+        self._api_server = AppAPIServer(
+            agent=self.agent,
+            config=self.config,
+            config_path=self.config_path,
+            config_supplier=lambda: load_config(self.config_path),
+        )
+        await self._api_server.start()
 
     async def _sync_dream_mode(self, scheduler) -> None:
         dream_cfg = self.config.get("dream_mode", {})

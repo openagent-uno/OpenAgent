@@ -38,6 +38,7 @@ class BaseModel(ABC):
         messages: list[dict[str, Any]],
         system: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
         on_status: Optional[Callable[[str], Awaitable[None]]] = None,
     ) -> ModelResponse:
         """Generate a response from the model.
@@ -47,6 +48,8 @@ class BaseModel(ABC):
             system: Optional system prompt.
             tools: Optional list of tool definitions in a provider-neutral format:
                 [{"name": str, "description": str, "input_schema": dict}, ...]
+            session_id: Optional external session key. Providers that support
+                persistent sessions can use this to resume or partition state.
             on_status: Optional async callback for live status updates (e.g. tool use).
         """
         ...
@@ -56,7 +59,13 @@ class BaseModel(ABC):
         messages: list[dict[str, Any]],
         system: str | None = None,
         tools: list[dict[str, Any]] | None = None,
+        session_id: str | None = None,
     ) -> AsyncIterator[str]:
         """Stream response text chunks. Default: falls back to generate()."""
-        response = await self.generate(messages, system=system, tools=tools)
+        response = await self.generate(
+            messages,
+            system=system,
+            tools=tools,
+            session_id=session_id,
+        )
         yield response.content

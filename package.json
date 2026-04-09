@@ -1,0 +1,16 @@
+{
+  "name": "openagent-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "client:web": "npm --workspace apps/openagent-control run web",
+    "client:desktop": "npm --workspace apps/openagent-desktop run dev",
+    "client:typecheck": "npm --workspace apps/openagent-control run typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

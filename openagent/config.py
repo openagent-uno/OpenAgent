@@ -9,8 +9,18 @@ from typing import Any
 
 import yaml
 
+from openagent.runtime import (
+    default_config_path,
+    default_db_path,
+    default_vault_path,
+    ensure_runtime_dirs,
+    migrate_legacy_workspace,
+    resolve_config_path,
+    resolve_runtime_path,
+)
 
-DEFAULT_CONFIG_FILE = "openagent.yaml"
+
+DEFAULT_CONFIG_FILE = str(default_config_path())
 
 
 def _substitute_env_vars(value: str) -> str:
@@ -35,14 +45,47 @@ def _resolve_env_vars(data: Any) -> Any:
     return data
 
 
+def _normalize_runtime_config(config: dict) -> dict:
+    cfg = dict(config)
+
+    memory = dict(cfg.get("memory", {}) or {})
+    memory["db_path"] = str(
+        resolve_runtime_path(memory.get("db_path") or default_db_path())
+    )
+    memory["vault_path"] = str(
+        resolve_runtime_path(memory.get("vault_path") or default_vault_path())
+    )
+    cfg["memory"] = memory
+
+    api = dict(cfg.get("api", {}) or {})
+    api.setdefault("enabled", True)
+    api.setdefault("host", "127.0.0.1")
+    api.setdefault("port", 8765)
+    cfg["api"] = api
+
+    services = dict(cfg.get("services", {}) or {})
+    syncthing = dict(services.get("syncthing", {}) or {})
+    if syncthing:
+        syncthing["vault_path"] = str(
+            resolve_runtime_path(syncthing.get("vault_path") or memory["vault_path"])
+        )
+        services["syncthing"] = syncthing
+        cfg["services"] = services
+
+    return cfg
+
+
 def load_config(path: str | Path | None = None) -> dict:
-    """Load config from YAML file. Returns empty dict if file doesn't exist."""
-    config_path = Path(path) if path else Path(DEFAULT_CONFIG_FILE)
+    """Load config from YAML file with runtime defaults applied."""
+    ensure_runtime_dirs()
+    if path is None:
+        migrate_legacy_workspace()
+    config_path = resolve_config_path(path)
     if not config_path.exists():
-        return {}
+        return _normalize_runtime_config({})
     with open(config_path) as f:
         raw = yaml.safe_load(f) or {}
-    return _resolve_env_vars(raw)
+    return _normalize_runtime_config(_resolve_env_vars(raw))
 
 
 def build_model_from_config(config: dict):

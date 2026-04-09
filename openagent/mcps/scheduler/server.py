@@ -9,8 +9,8 @@ Transport: stdio (launched as a subprocess by MCPRegistry).
 Storage: the same SQLite DB used by openagent.scheduler.Scheduler and
 openagent.memory.db.MemoryDB. The DB path is read from the
 OPENAGENT_DB_PATH env var — injected by the Agent at startup — falling
-back to `./openagent.db` to match the default in openagent.cli and
-openagent.server.
+back to the system default DB path to match the default in
+openagent.cli and openagent.server.
 
 Writes go straight to the `scheduled_tasks` table; the long-running
 Scheduler loop picks up new/updated rows on its next CHECK_INTERVAL tick
@@ -30,6 +30,8 @@ from typing import Any
 import aiosqlite
 from croniter import croniter
 from mcp.server.fastmcp import FastMCP
+
+from openagent.runtime import default_db_path
 
 logger = logging.getLogger(__name__)
 
@@ -66,12 +68,11 @@ def _db_path() -> str:
 
     Precedence:
       1. OPENAGENT_DB_PATH env var (set by the Agent at launch).
-      2. ./openagent.db relative to the current working directory — this
-         matches the default in openagent.cli / openagent.server so a
-         standalone `python -m openagent.mcps.scheduler.server` run still
-         points at the same file.
+      2. The system default OpenAgent DB path so a standalone
+         `python -m openagent.mcps.scheduler.server` run still points at
+         the same file.
     """
-    return os.environ.get("OPENAGENT_DB_PATH") or "openagent.db"
+    return os.environ.get("OPENAGENT_DB_PATH") or str(default_db_path())
 
 
 # Single shared connection per MCP process. SQLite handles this fine

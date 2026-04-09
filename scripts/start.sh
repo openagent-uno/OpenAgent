@@ -8,9 +8,14 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-CONFIG="${1:-$PROJECT_DIR/openagent.yaml}"
-VENV="$PROJECT_DIR/venv/bin/openagent"
-LOG="$PROJECT_DIR/openagent.log"
+RUNTIME_ROOT="${OPENAGENT_HOME:-$HOME/.openagent}"
+CONFIG="${1:-$RUNTIME_ROOT/openagent.yaml}"
+if [ -x "$PROJECT_DIR/venv/bin/openagent" ]; then
+    VENV="$PROJECT_DIR/venv/bin/openagent"
+else
+    VENV="$RUNTIME_ROOT/runtime/venv/bin/openagent"
+fi
+LOG="$RUNTIME_ROOT/logs/openagent-screen.log"
 SCREEN_NAME="openagent"
 
 echo "=== OpenAgent Start ==="
@@ -46,6 +51,7 @@ fi
 # 5. Start in screen
 echo "Starting OpenAgent..."
 export DISPLAY="${DISPLAY:-:1}"
+mkdir -p "$(dirname "$LOG")"
 rm -f "$LOG"
 
 screen -dmS "$SCREEN_NAME" bash -c "exec $VENV -c $CONFIG serve --channel telegram > $LOG 2>&1"
