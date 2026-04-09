@@ -184,30 +184,52 @@ See also: [[server-architecture]]
 
 ## Services
 
-Auxiliary services run alongside the agent and are managed by the same lifecycle (`openagent serve` starts them, shutdown stops them). Each service is a plug-in — currently there's one built-in, `obsidian_web`, and the same pattern can host a VNC server, a Caddy reverse proxy, or anything else that needs to live next to the agent.
+Auxiliary services run alongside the agent and are managed by the same lifecycle (`openagent serve` starts/verifies them, shutdown tears them down). Each service is a plug-in — currently there's one built-in, `syncthing`, and the same pattern can host a reverse proxy, a metrics exporter, or anything else that needs to live next to the agent.
 
-### Obsidian web (built-in)
+### Syncthing (built-in)
 
-Runs the real Obsidian desktop app inside a Docker container (`lscr.io/linuxserver/obsidian`) with KasmVNC as the web frontend. The `memories/` vault is mounted read/write into the container, so any note the agent writes is visible immediately in the UI, and vice versa.
+Keeps the memory vault in sync with your laptop (or any other machine) at the filesystem level, so you can open the same vault with the native Obsidian desktop client — no plugins, no CouchDB, no cloud. The agent writes `.md` files on the VPS, Syncthing detects the changes and pushes them to your Mac within seconds, and Obsidian on the Mac picks them up from disk.
 
 ```yaml
 services:
-  obsidian_web:
+  syncthing:
     enabled: true
-    port: 8200
-    username: admin
-    password: ${OBSIDIAN_PASSWORD}      # required
     vault_path: /home/ubuntu/OpenAgent/memories
+    folder_id: openagent-memories
+    folder_label: OpenAgent Memories
+    gui_bind: 127.0.0.1:8384           # keep on localhost; reach via SSH tunnel
 ```
 
-Access: `http://<host>:8200` → KasmVNC login → full Obsidian desktop. Graph view, plugins, themes all work. The container uses `--restart=unless-stopped`, so it survives agent crashes too.
+Install with:
 
-Requires Docker on the host. `openagent setup --full` installs Docker on Linux automatically and pulls the image for you.
+```bash
+openagent setup --with-syncthing
+# or the one-shot:
+openagent setup --full
+```
+
+On Linux this runs `apt install syncthing` (or the dnf/pacman/zypper/apk equivalent) and enables the `syncthing.service` systemd **user** unit shipped with the package. On macOS it's `brew install syncthing` + `brew services start syncthing`. On Windows it's `winget install Syncthing.Syncthing`.
+
+After install, `openagent setup --with-syncthing` waits for the daemon to come up, reads its device ID from the local config, registers the vault as a shared folder via Syncthing's REST API, and prints the device ID in a panel you can copy/paste. At runtime, the built-in aux service verifies the daemon is still reachable and that the folder is still registered — nothing is spawned inside the agent process.
+
+### Pairing a second machine
+
+The vault only becomes useful after you pair another device (your Mac, a second VPS, a phone running Syncthing, etc.).
+
+1. Install Syncthing on the other machine. On macOS there's a companion script: `docs/examples/setup-syncthing-mac.sh [VAULT_DIR]` which installs Syncthing via Homebrew, starts it via `brew services`, prints the Mac's device ID, and walks you through the rest.
+2. On the VPS, forward the Syncthing GUI over SSH: `ssh -L 8385:127.0.0.1:8384 ubuntu@YOUR_VPS_HOST`. You can now open `http://127.0.0.1:8385` in your Mac browser and see the VPS Syncthing UI.
+3. In the VPS GUI, click **Add Remote Device** and paste the Mac's device ID. Save.
+4. In the Mac GUI (`http://127.0.0.1:8384`), accept the incoming device prompt.
+5. In the VPS GUI, edit the `openagent-memories` folder → **Sharing** tab → tick the Mac device. Save.
+6. In the Mac GUI, accept the incoming folder share prompt and choose a local path (e.g. `~/Documents/OpenAgent-Vault`).
+7. Open that local folder in Obsidian → *Open folder as vault*. You're done — graph view, backlinks, plugins all work against the same notes the agent writes.
+
+The handshake is deliberately bilateral: Syncthing refuses to sync from an unknown device until both sides have approved the pairing. OpenAgent automates everything it can on the VPS side; the two or three clicks on the Mac side are your explicit consent to the pairing.
 
 Manual control:
 
 ```bash
-openagent services status       # check every configured aux service
+openagent services status      # check every configured aux service
 openagent services start
 openagent services stop
 ```
@@ -296,26 +318,26 @@ openagent task disable <id>
 
 ## Doctor & Setup
 
-`openagent doctor` checks the environment and reports missing pieces. `openagent setup` installs them — Docker, OS service, aux service images — as far as each platform allows.
+`openagent doctor` checks the environment and reports missing pieces. `openagent setup` installs them — Syncthing, OS service, optional Docker — as far as each platform allows.
 
 ```bash
-openagent doctor              # environment report, non-destructive
-openagent setup               # register OpenAgent as an OS service (default)
-openagent setup --with-docker # also install Docker where automatable
-openagent setup --pull-images # also pre-pull images for every enabled aux service
-openagent setup --full        # everything: Docker + OS service + image pulls
-openagent install             # alias for `setup --full`
+openagent doctor                 # environment report, non-destructive
+openagent setup                  # register OpenAgent as an OS service (default)
+openagent setup --with-syncthing # also install Syncthing + configure the vault folder
+openagent setup --with-docker    # also install Docker (no aux service uses it today)
+openagent setup --full           # everything: Syncthing + OS service + doctor
+openagent install                # alias for `setup --full`
 ```
 
-Platform support for automatic Docker install:
+Platform support for automatic installs:
 
-| Platform | Docker install | Notes |
+| Platform | Syncthing | Docker (optional) |
 |---|---|---|
-| Linux (apt / dnf / pacman / zypper / apk) | **Fully automated** | Requires sudo. Enables the systemd unit and adds the current user to the `docker` group. |
-| macOS | `brew install --cask docker` | Docker Desktop is a GUI app; you still have to launch it once to accept the EULA. |
-| Windows | `winget install Docker.DockerDesktop` | Reboot required afterwards. |
+| Linux (apt / dnf / pacman / zypper / apk) | **Fully automated** — package install + `systemctl --user enable --now syncthing` | Fully automated; enables systemd unit, adds user to `docker` group |
+| macOS | `brew install syncthing` + `brew services start syncthing` | `brew install --cask docker` (GUI, launch once manually) |
+| Windows | `winget install Syncthing.Syncthing` | `winget install Docker.DockerDesktop` (reboot required) |
 
-`openagent setup --full` is idempotent: running it on an already-configured machine will just verify and move on.
+`openagent setup --full` is idempotent: running it on an already-configured machine just verifies and moves on. When Syncthing is freshly installed, the setup command waits for the daemon to come up, registers the vault folder via Syncthing's REST API, and prints the device ID you need to paste on the second machine to pair them.
 
 ### OS service
 
@@ -461,12 +483,12 @@ channels:
     green_api_token: ${GREEN_API_TOKEN}
 
 services:
-  obsidian_web:
+  syncthing:
     enabled: true
-    port: 8200
-    username: admin
-    password: ${OBSIDIAN_PASSWORD}
     vault_path: ./memories
+    folder_id: openagent-memories
+    folder_label: OpenAgent Memories
+    gui_bind: 127.0.0.1:8384
 
 scheduler:
   enabled: true
@@ -503,8 +525,8 @@ openagent serve -ch telegram           # only a specific channel
 # Doctor & setup
 openagent doctor                       # environment report
 openagent setup                        # install as OS service only
-openagent setup --with-docker          # + install Docker (Linux automated, Mac/Win brew/winget)
-openagent setup --pull-images          # + pre-pull images for enabled aux services
+openagent setup --with-syncthing       # + install Syncthing + register vault folder
+openagent setup --with-docker          # + install Docker (optional)
 openagent setup --full                 # everything (same as `install`)
 openagent install                      # alias of `setup --full`
 openagent uninstall                    # remove the OS service
