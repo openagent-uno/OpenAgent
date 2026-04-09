@@ -134,15 +134,18 @@ channels:
 
 # Auxiliary services run alongside the agent in the same lifecycle.
 services:
-  obsidian_web:
+  # Syncthing keeps the vault folder in sync with your laptop so you can
+  # open it with the native Obsidian client. Install it once with
+  # `openagent setup --with-syncthing` (or `openagent setup --full`). The
+  # aux service only verifies the daemon is reachable and registers the
+  # folder — Syncthing itself runs under systemd --user (Linux), launchd
+  # (macOS via `brew services`) or a Windows service.
+  syncthing:
     enabled: true
-    port: 8200
-    username: admin
-    password: ${OBSIDIAN_PASSWORD}      # required
     vault_path: /home/ubuntu/OpenAgent/memories
-    # NOTE: KasmVNC serves HTTPS with a self-signed cert. Accept the
-    # browser warning on first visit, or put Caddy in front for a real
-    # Let's Encrypt certificate.
+    folder_id: openagent-memories
+    folder_label: OpenAgent Memories
+    gui_bind: 127.0.0.1:8384            # stay on localhost; reach via SSH tunnel
 
 scheduler:
   enabled: true
