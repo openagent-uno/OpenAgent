@@ -50,7 +50,6 @@ channels:
     token: ${OPENAGENT_WS_TOKEN}
 
 services:
-  syncthing:
     enabled: true
     vault_path: ~/.openagent/memories
     folder_id: openagent-memories
@@ -86,7 +85,6 @@ openagent serve -ch telegram           # single channel
 
 # Doctor & setup
 openagent doctor
-openagent setup [--with-syncthing] [--with-docker] [--full]
 openagent install                      # alias for setup --full
 openagent uninstall
 openagent status

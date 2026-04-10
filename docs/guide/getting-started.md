@@ -45,6 +45,5 @@ The agent will:
 2. Connect all configured MCPs (8 defaults + your custom ones)
 3. Start configured channels (Telegram, Discord, WebSocket, etc.)
 4. Start the scheduler (if enabled)
-5. Start auxiliary services (Syncthing, etc.)
 
 Send a message to your Telegram bot — it will respond.

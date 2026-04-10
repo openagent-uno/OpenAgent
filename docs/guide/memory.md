@@ -15,7 +15,6 @@ memory:
 - The agent writes notes as `.md` files inside `vault_path/`
 - MCPVault exposes `list_notes`, `read_note`, `write_note`, `search_notes`, `get_backlinks`, etc.
 - Open the same folder in Obsidian desktop for graph view, backlinks, and plugin support
-- Enable Syncthing to sync the vault between VPS and laptop (see [Services](services.md))
 
 ## Note Format
 

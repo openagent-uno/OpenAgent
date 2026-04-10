@@ -7,14 +7,12 @@ pip install 'openagent-framework[all]'
 openagent setup --full
 ```
 
-This installs as OS service + Syncthing + runs doctor checks.
 
 ## Doctor & Setup
 
 ```bash
 openagent doctor                 # environment report
 openagent setup                  # register as OS service
-openagent setup --with-syncthing # + Syncthing install
 openagent setup --full           # everything
 openagent install                # alias for setup --full
 ```
