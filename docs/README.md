@@ -33,22 +33,26 @@ openagent serve
 
 ```
 OpenAgent/
-├── openagent/                  # Python package (shipped via pip)
+├── openagent/                  # Python framework (shipped via pip)
 │   ├── cli.py                  #   CLI entry point (openagent serve, chat, setup, ...)
 │   ├── core/                   #   Runtime: agent loop, server lifecycle, scheduler, config, prompts
 │   ├── setup/                  #   First-run: platform checks (doctor), OS service installer
-│   ├── channels/               #   Telegram, Discord, WhatsApp integrations
+│   ├── channels/               #   Telegram, Discord, WhatsApp, WebSocket
 │   ├── models/                 #   LLM providers (Claude CLI/API, Zhipu/OpenAI-compat)
 │   ├── mcp/                    #   MCP client (stdio + SSE + OAuth)
 │   ├── mcps/                   #   Bundled MCP servers (TypeScript + Python, built at first run)
 │   ├── memory/                 #   SQLite backend for scheduled tasks
 │   └── services/               #   Auxiliary daemons (Syncthing vault sync)
-├── scripts/                    # Operational shell scripts (setup, start, stop, status, release)
-├── desktop/                    # Electron desktop app (coming soon)
+├── app/                        # Desktop & mobile app (Electron + React Native)
+│   ├── universal/              #   Shared React Native Web codebase (web, iOS, Android)
+│   ├── desktop/                #   Electron wrapper with auto-updater
+│   ├── common/                 #   Shared TypeScript types
+│   ├── setup.sh / start.sh     #   Monorepo scripts (setup, start, build, test)
+│   └── build.sh / test.sh
+├── scripts/                    # Ops scripts (setup, start, stop, status, release)
 ├── docs/                       # Documentation + examples
-│   └── examples/               #   Production config, systemd unit, Syncthing setup
-├── .github/workflows/          # CI/CD (PyPI publish on tag push)
-└── pyproject.toml              # Package metadata + dependencies
+├── .github/workflows/          # CI/CD (PyPI + Electron builds on tag push)
+└── pyproject.toml              # Python package metadata + dependencies
 ```
 
 The `openagent/mcps/` directory contains bundled MCP tool servers (editor, shell, web-search, computer-control, chrome-devtools, messaging, scheduler). They're mostly TypeScript and are built automatically on first use if Node.js is available. The scheduler MCP is Python-native.
@@ -319,6 +323,23 @@ channels:
     green_api_token: ${GREEN_API_TOKEN}
 ```
 
+### WebSocket (Desktop/Web App)
+
+```yaml
+channels:
+  websocket:
+    port: 8765
+    token: ${OPENAGENT_WS_TOKEN}       # shared secret for auth
+    # allowed_origins:                  # optional CORS filter
+    #   - "http://localhost:3000"
+```
+
+JSON over WebSocket with shared-token auth. Used by the OpenAgent desktop app and any custom web client. The same HTTP server also exposes REST endpoints:
+
+- `GET /api/health` — agent name, version, connected clients
+
+For remote connections, use an SSH tunnel: `ssh -L 8765:localhost:8765 user@vps` and connect to `localhost:8765`.
+
 ### Running Multiple Channels
 
 ```bash
@@ -333,6 +354,52 @@ The agent can send files by including markers in responses:
 [IMAGE:/path/to/chart.png]
 [FILE:/path/to/report.pdf]
 [VOICE:/path/to/memo.ogg]
+```
+
+---
+
+## Desktop App
+
+OpenAgent ships an Electron desktop app (`app/`) that connects to any OpenAgent instance via the WebSocket channel. The same React Native Web codebase also compiles for iOS and Android (future).
+
+### Quick start
+
+```bash
+cd app
+./setup.sh              # install dependencies (universal + desktop)
+./start.sh macos        # start Electron dev mode
+```
+
+### Screens
+
+- **Login** — connect to local (`localhost:8765`) or remote OpenAgent via host/port/token
+- **Chat** — ChatGPT-style interface with multi-session support, real-time status updates
+- **Vault** *(coming soon)* — Obsidian-style graph view + markdown editor for the memory vault
+- **Config** *(coming soon)* — visual editor for openagent.yaml, MCP management, scheduler
+
+### Building
+
+```bash
+./build.sh macos        # → app/desktop/release/*.dmg
+./build.sh windows      # → app/desktop/release/*.exe
+./build.sh linux        # → app/desktop/release/*.AppImage
+```
+
+### Auto-update
+
+The desktop app uses `electron-updater` with GitHub Releases as the update source. When a new release is published (via `scripts/release.sh`), the app detects it, downloads in background, and prompts the user to restart.
+
+### Architecture (Mixout-Client pattern)
+
+```
+app/
+├── universal/          # Shared React Native + Web codebase
+│   ├── app/            #   Expo Router screens (Login, Chat, ...)
+│   ├── stores/         #   Zustand state (connection, chat, vault)
+│   └── services/       #   WebSocket client, REST API, storage
+├── desktop/            # Electron wrapper
+│   └── src/            #   main.ts (window + auto-updater), preload.ts, services/
+└── common/             # Shared TypeScript types (WS protocol, API types)
 ```
 
 ---
