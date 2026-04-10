@@ -1,5 +1,7 @@
 # Getting Started
 
+This guide installs the **Agent Server**. The CLI Client and Desktop App are separate downloads that connect to a running server.
+
 ## Installation
 
 ```bash
@@ -8,7 +10,7 @@ pip install openagent-framework[all]
 
 Individual extras:
 ```bash
-pip install openagent-framework          # core + CLI
+pip install openagent-framework          # core server runtime
 pip install openagent-framework[telegram] # + Telegram
 pip install openagent-framework[discord]  # + Discord
 pip install openagent-framework[whatsapp] # + WhatsApp

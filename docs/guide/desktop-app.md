@@ -1,6 +1,6 @@
 # Desktop App
 
-OpenAgent ships an Electron desktop app that connects to any OpenAgent instance via the WebSocket channel. Built with React Native Web — the same codebase compiles for web, macOS, Windows, Linux, and future iOS/Android.
+OpenAgent ships an Electron desktop app that connects to any OpenAgent instance via the WebSocket channel. It is an independent client application: it does not bundle the Agent Server, and it expects a running OpenAgent runtime to connect to. Built with React Native Web, the same codebase compiles for web, macOS, Windows, Linux, and future iOS/Android.
 
 ## Quick Start
 

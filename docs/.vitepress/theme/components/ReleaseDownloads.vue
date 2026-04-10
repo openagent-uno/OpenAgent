@@ -23,6 +23,14 @@ const loading = ref(true);
 const error = ref("");
 const release = ref<Release | null>(null);
 
+function isAgentAsset(name: string) {
+  return /^openagent[_-]framework.*(\.whl|\.tar\.gz)$/i.test(name);
+}
+
+function isCliAsset(name: string) {
+  return /^openagent[_-]cli.*(\.whl|\.tar\.gz)$/i.test(name);
+}
+
 function formatSize(size: number) {
   if (size >= 1024 * 1024 * 1024) {
     return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
@@ -56,6 +64,14 @@ const groups = computed(() => {
     .filter((group) => grouped.has(group))
     .map((group) => ({ name: group, assets: grouped.get(group) ?? [] }));
 });
+
+const agentAssets = computed(() =>
+  (release.value?.assets ?? []).filter((asset) => isAgentAsset(asset.name)),
+);
+
+const cliAssets = computed(() =>
+  (release.value?.assets ?? []).filter((asset) => isCliAsset(asset.name)),
+);
 
 const publishedAt = computed(() => {
   if (!release.value?.published_at) return "";
@@ -104,7 +120,8 @@ onMounted(async () => {
       <div class="release-meta">
         <strong>{{ release.tag_name }}</strong>
         <div class="download-note">
-          Latest stable release published {{ publishedAt }}.
+          Latest stable release published {{ publishedAt }}. Tagged releases can contain
+          the Agent Server package, CLI Client package, and Desktop App installers.
         </div>
         <div class="download-links">
           <a class="download-pill" :href="release.html_url">Release notes</a>
@@ -112,11 +129,49 @@ onMounted(async () => {
         </div>
       </div>
 
+      <div class="download-grid">
+        <article class="download-card">
+          <h3>Agent Server</h3>
+          <div class="download-note">
+            Python package assets for the persistent OpenAgent runtime in
+            <code>openagent/</code>.
+          </div>
+          <ul v-if="agentAssets.length">
+            <li v-for="asset in agentAssets" :key="asset.browser_download_url">
+              <a :href="asset.browser_download_url">{{ asset.name }}</a>
+              <div class="download-note">{{ formatSize(asset.size) }}</div>
+            </li>
+          </ul>
+          <div v-else class="download-note">
+            No Agent Server package is attached to this latest release. Browse all releases
+            if this tag predates the current packaging layout.
+          </div>
+        </article>
+
+        <article class="download-card">
+          <h3>CLI Client</h3>
+          <div class="download-note">
+            Separate Python package assets for the terminal client that connects to a
+            running OpenAgent Gateway.
+          </div>
+          <ul v-if="cliAssets.length">
+            <li v-for="asset in cliAssets" :key="asset.browser_download_url">
+              <a :href="asset.browser_download_url">{{ asset.name }}</a>
+              <div class="download-note">{{ formatSize(asset.size) }}</div>
+            </li>
+          </ul>
+          <div v-else class="download-note">
+            No CLI package is attached to this latest release yet. Browse all releases or
+            use the install command documented above.
+          </div>
+        </article>
+      </div>
+
       <div v-if="groups.length" class="download-grid">
         <article v-for="group in groups" :key="group.name" class="download-card">
           <h3>{{ group.name }}</h3>
           <div class="download-note">
-            Electron build artifacts uploaded by the release workflow.
+            Desktop App installers uploaded by the release workflow.
           </div>
           <ul>
             <li v-for="asset in group.assets" :key="asset.browser_download_url">
@@ -128,7 +183,7 @@ onMounted(async () => {
       </div>
 
       <div v-else class="download-state">
-        <strong>No desktop binaries were attached to this release yet.</strong>
+        <strong>No desktop installers were attached to this release yet.</strong>
         <div class="download-note">
           The repository is ready to surface them here once electron-builder uploads
           the release artifacts.

@@ -1,6 +1,6 @@
 # Models
 
-OpenAgent supports multiple LLM providers. Every model gets the same MCP tools — no provider-specific behavior.
+OpenAgent is model agnostic by design. It supports multiple LLM providers, and every model gets the same MCP tools, memory behavior, channels, and client surfaces.
 
 ## Claude CLI (Claude Code SDK)
 

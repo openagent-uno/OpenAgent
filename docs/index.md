@@ -3,14 +3,14 @@ layout: home
 
 hero:
   name: OpenAgent
-  text: Persistent AI agents with memory, MCP tools, and multi-channel reach
-  tagline: Run one agent across desktop, CLI, Telegram, Discord, WhatsApp, and scheduled jobs with an Obsidian-compatible memory vault.
+  text: Model-agnostic persistent agents with memory, MCP tools, and multi-channel reach
+  tagline: Run the same agent with Claude, GLM, Ollama, LM Studio, vLLM, or any OpenAI-compatible model, then pair it with the Agent, CLI, and Desktop App as separate installs.
   image:
     src: /brand/openagent-logo.png
     alt: OpenAgent
   actions:
     - theme: brand
-      text: Download Desktop
+      text: View Downloads
       link: /downloads
     - theme: alt
       text: Read Documentation
@@ -22,8 +22,8 @@ hero:
 features:
   - title: Persistent by default
     details: Keep context, memory, and schedules alive beyond a single chat window. OpenAgent is built for long-running agent behavior, not one-off prompts.
-  - title: Model-agnostic tooling
-    details: Claude CLI/API, Z.ai GLM, Ollama, LM Studio, vLLM, and any OpenAI-compatible endpoint all get the same MCP tool surface.
+  - title: Model-agnostic by design
+    details: Claude CLI/API, Z.ai GLM, Ollama, LM Studio, vLLM, and any OpenAI-compatible endpoint all get the same MCP tools, memory model, and channels.
   - title: Multi-channel delivery
     details: Expose the same agent through Telegram, Discord, WhatsApp, desktop, and CLI with consistent commands, stop controls, and status updates.
   - title: Obsidian-native memory
@@ -38,25 +38,30 @@ features:
 
 ## What OpenAgent is for
 
-OpenAgent turns an LLM into a system you can actually keep running. It combines model execution, tool access, message channels, scheduling, and long-term memory behind one framework so the same agent can answer, act, remember, and follow up over time.
+OpenAgent turns an LLM into a system you can actually keep running. It combines model execution, tool access, message channels, scheduling, and long-term memory behind one framework so the same agent can answer, act, remember, and follow up over time. It is model agnostic by design: the provider can change, but the operating surface stays the same.
+
+## Three independent apps
+
+OpenAgent ships as three separate downloads that work together but do not bundle into a single installer.
 
 <div class="brand-grid">
   <div class="brand-card">
-    <h3>One agent, many surfaces</h3>
-    <p>Use the desktop app locally, connect through the CLI, or expose the same runtime through chat channels without rebuilding the stack for each surface.</p>
+    <h3>Agent Server</h3>
+    <p>The persistent runtime in <code>openagent/</code>. Install it where the agent should live, configure channels and memory there, and let its installer and auto-update flow keep it running.</p>
   </div>
   <div class="brand-card">
-    <h3>Built around MCP</h3>
-    <p>Filesystem, editor, shell, web search, browser, scheduler, memory, and messaging tools are part of the default operating model.</p>
+    <h3>CLI Client</h3>
+    <p>A separate terminal client for connecting to any running OpenAgent Gateway. Use it when you want fast operational access without the desktop UI.</p>
   </div>
   <div class="brand-card">
-    <h3>Memory that stays yours</h3>
-    <p>The vault is plain markdown with standard conventions. No proprietary store, no hidden format, no lock-in for notes or backlinks.</p>
+    <h3>Desktop App</h3>
+    <p>The Electron control surface for chat, memory, MCP configuration, and graph exploration. It connects to a running Agent Server over WebSocket and is downloaded independently.</p>
   </div>
 </div>
 
 <div class="brand-inline-links">
-  <a href="/OpenAgent/downloads">Latest desktop builds</a>
+  <a href="/OpenAgent/downloads">Downloads for Agent, CLI, and App</a>
+  <a href="/OpenAgent/guide/apps">Apps and distribution guide</a>
   <a href="/OpenAgent/guide/">Guides and configuration</a>
   <a href="https://github.com/geroale/OpenAgent/releases">GitHub releases</a>
 </div>
