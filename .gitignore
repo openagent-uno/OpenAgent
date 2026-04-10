@@ -15,10 +15,14 @@ venv/
 openagent.yaml
 !docs/examples/openagent.yaml
 
-# Node / Electron (desktop app)
+# Node / Electron / React Native
 node_modules/
-desktop/dist/
-desktop/out/
+app/desktop/dist/
+app/desktop/release/
+app/universal/web-build/
+app/universal/.expo/
+app/universal/android/
+app/universal/ios/
 *.asar
 
 # IDE
