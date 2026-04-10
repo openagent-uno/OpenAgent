@@ -172,6 +172,10 @@
   padding: 1.2rem;
 }
 
+.download-card-wide {
+  grid-column: 1 / -1;
+}
+
 .download-card h3 {
   margin: 0;
 }

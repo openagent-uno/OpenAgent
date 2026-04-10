@@ -39,15 +39,15 @@ function isCliAsset(name: string) {
 }
 
 function isMacDesktopAsset(name: string) {
-  return /\.(dmg|zip)$/i.test(name);
+  return /\.(dmg|zip)$/i.test(name) && !/blockmap/i.test(name);
 }
 
 function isWindowsDesktopAsset(name: string) {
-  return /\.(exe|msi)$/i.test(name);
+  return /\.(exe|msi)$/i.test(name) && !/blockmap/i.test(name);
 }
 
 function isLinuxDesktopAsset(name: string) {
-  return /\.(AppImage|deb|rpm)$/i.test(name);
+  return /\.(AppImage|deb|rpm)$/i.test(name) && !/blockmap/i.test(name);
 }
 
 function formatSize(size: number) {
@@ -262,7 +262,7 @@ onMounted(async () => {
           </div>
         </article>
 
-        <article class="download-card">
+        <article class="download-card download-card-wide">
           <div class="download-card-header">
             <div>
               <div class="download-kicker">3. Add the visual client</div>
