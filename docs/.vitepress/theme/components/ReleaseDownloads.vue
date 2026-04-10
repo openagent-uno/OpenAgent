@@ -39,7 +39,7 @@ function isCliAsset(name: string) {
 }
 
 function isMacDesktopAsset(name: string) {
-  return /\.(dmg|zip)$/i.test(name) && !/blockmap/i.test(name);
+  return /\.dmg$/i.test(name) && !/blockmap/i.test(name);
 }
 
 function isWindowsDesktopAsset(name: string) {
@@ -66,16 +66,23 @@ function formatDate(dateString: string) {
   }).format(new Date(dateString));
 }
 
+function archLabel(name: string): string {
+  if (/arm64/i.test(name)) return " (Apple Silicon)";
+  if (/x64|amd64/i.test(name) && !/arm/i.test(name)) return " (Intel)";
+  if (/universal/i.test(name)) return " (Universal)";
+  return "";
+}
+
 function assetLabel(name: string) {
+  const arch = archLabel(name);
   if (/\.whl$/i.test(name)) return "Python wheel";
   if (/\.tar\.gz$/i.test(name)) return "Source tarball";
-  if (/\.dmg$/i.test(name)) return "Download DMG";
-  if (/\.zip$/i.test(name)) return "Download ZIP";
-  if (/\.exe$/i.test(name)) return "Download installer";
-  if (/\.msi$/i.test(name)) return "Download MSI";
-  if (/\.AppImage$/i.test(name)) return "Download AppImage";
-  if (/\.deb$/i.test(name)) return "Download DEB";
-  if (/\.rpm$/i.test(name)) return "Download RPM";
+  if (/\.dmg$/i.test(name)) return `DMG${arch}`;
+  if (/\.exe$/i.test(name)) return `Installer${arch}`;
+  if (/\.msi$/i.test(name)) return `MSI${arch}`;
+  if (/\.AppImage$/i.test(name)) return `AppImage${arch}`;
+  if (/\.deb$/i.test(name)) return `DEB${arch}`;
+  if (/\.rpm$/i.test(name)) return `RPM${arch}`;
   return name;
 }
 
