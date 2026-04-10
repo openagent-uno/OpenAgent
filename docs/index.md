@@ -10,14 +10,14 @@ hero:
     alt: OpenAgent
   actions:
     - theme: brand
-      text: Download Agent, CLI & App
+      text: Get It Now
       link: /downloads
-    - theme: alt
-      text: Compare the 3 Apps
-      link: /guide/apps
     - theme: alt
       text: Read the Docs
       link: /guide/
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/geroale/OpenAgent
 
 features:
   - title: Model-agnostic by design
@@ -60,7 +60,7 @@ OpenAgent is one system, but you install each surface independently. Most setups
 
 <div class="brand-inline-links">
   <a href="/OpenAgent/downloads">Open all downloads</a>
-  <a href="/OpenAgent/guide/apps">Compare the 3 apps</a>
+  <a href="/OpenAgent/guide/apps">Apps & distribution guide</a>
   <a href="/OpenAgent/guide/getting-started">Install the Agent Server</a>
   <a href="https://github.com/geroale/OpenAgent/releases">Browse GitHub releases</a>
 </div>
