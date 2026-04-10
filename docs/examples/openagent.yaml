@@ -149,14 +149,6 @@ channels:
   #   allowed_users:
   #     - "391234567890"
 
-# Auxiliary services run alongside the agent in the same lifecycle.
-services:
-  syncthing:
-    enabled: true
-    vault_path: ~/.openagent/memories
-    folder_id: openagent-memories
-    folder_label: OpenAgent Memories
-    gui_bind: 127.0.0.1:8384
 
 scheduler:
   enabled: true
