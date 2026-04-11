@@ -4,6 +4,7 @@ const repo = "https://github.com/geroale/OpenAgent";
 const site = "https://openagent.uno/";
 const base = "/";
 
+
 export default defineConfig({
   title: "OpenAgent",
   description:
