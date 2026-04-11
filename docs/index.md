@@ -44,24 +44,24 @@ OpenAgent is one system, but you install each surface independently. Most setups
   <div class="brand-card">
     <h3>Agent Server</h3>
     <p>The persistent runtime in <code>openagent/</code>. This is the actual agent process with models, MCP tools, memory, channels, scheduler, and install or auto-update behavior.</p>
-    <p><a href="/OpenAgent/downloads#agent-server">Download the server</a></p>
+    <p><a href="/downloads#agent-server">Download the server</a></p>
   </div>
   <div class="brand-card">
     <h3>CLI Client</h3>
     <p>A separate terminal client for connecting to any running OpenAgent Gateway. Use it when you want fast operational access without the desktop UI.</p>
-    <p><a href="/OpenAgent/downloads#cli-client">Download the CLI</a></p>
+    <p><a href="/downloads#cli-client">Download the CLI</a></p>
   </div>
   <div class="brand-card">
     <h3>Desktop App</h3>
     <p>The Electron control surface for chat, memory, MCP configuration, model setup, and graph exploration. It connects to a running Agent Server and is downloaded independently.</p>
-    <p><a href="/OpenAgent/downloads#desktop-app">Download the desktop app</a></p>
+    <p><a href="/downloads#desktop-app">Download the desktop app</a></p>
   </div>
 </div>
 
 <div class="brand-inline-links">
-  <a href="/OpenAgent/downloads">Open all downloads</a>
-  <a href="/OpenAgent/guide/apps">Apps & distribution guide</a>
-  <a href="/OpenAgent/guide/getting-started">Install the Agent Server</a>
+  <a href="/downloads">Open all downloads</a>
+  <a href="/guide/apps">Apps & distribution guide</a>
+  <a href="/guide/getting-started">Install the Agent Server</a>
   <a href="https://github.com/geroale/OpenAgent/releases">Browse GitHub releases</a>
 </div>
 
@@ -87,8 +87,8 @@ OpenAgent is one system, but you install each surface independently. Most setups
 </div>
 
 <div class="brand-inline-links">
-  <a href="/OpenAgent/downloads">Go to downloads</a>
-  <a href="/OpenAgent/guide/">Read the documentation</a>
+  <a href="/downloads">Go to downloads</a>
+  <a href="/guide/">Read the documentation</a>
 </div>
 
 </div>
