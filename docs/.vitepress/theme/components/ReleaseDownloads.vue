@@ -38,6 +38,11 @@ function isCliAsset(name: string) {
   return /^openagent[_-]cli.*(\.whl|\.tar\.gz)$/i.test(name);
 }
 
+function isExecutableAsset(name: string) {
+  // Matches standalone executable archives like openagent-0.3.22-macos-arm64.tar.gz
+  return /^openagent-\d+\.\d+\.\d+-(macos|linux|windows)-(arm64|x64)\.(tar\.gz|zip)$/i.test(name);
+}
+
 function isMacDesktopAsset(name: string) {
   return /\.dmg$/i.test(name) && !/blockmap/i.test(name);
 }
@@ -73,8 +78,20 @@ function archLabel(name: string): string {
   return "";
 }
 
+function executablePlatformLabel(name: string): string {
+  if (/macos/i.test(name)) return "macOS";
+  if (/linux/i.test(name)) return "Linux";
+  if (/windows/i.test(name)) return "Windows";
+  return "";
+}
+
 function assetLabel(name: string) {
   const arch = archLabel(name);
+  // Standalone executables
+  if (isExecutableAsset(name)) {
+    const plat = executablePlatformLabel(name);
+    return `${plat}${arch}`;
+  }
   if (/\.whl$/i.test(name)) return "Python wheel";
   if (/\.tar\.gz$/i.test(name)) return "Source tarball";
   if (/\.dmg$/i.test(name)) return `DMG${arch}`;
@@ -115,6 +132,10 @@ function findLatestMatch(
 
 const stableReleases = computed(() =>
   releases.value.filter((release) => !release.draft && !release.prerelease),
+);
+
+const executableDownload = computed(() =>
+  findLatestMatch((asset) => isExecutableAsset(asset.name)),
 );
 
 const agentDownload = computed(() =>
@@ -194,11 +215,49 @@ onMounted(async () => {
       </div>
 
       <div class="download-grid">
+        <article class="download-card download-card-wide">
+          <div class="download-card-header">
+            <div>
+              <div class="download-kicker">Recommended</div>
+              <h3>Standalone Executable</h3>
+            </div>
+            <div v-if="executableDownload" class="download-release-chip">
+              {{ executableDownload.release.tag_name }}
+            </div>
+          </div>
+          <div class="download-note">
+            Download-and-run binaries for the Agent Server. No Python required.
+            Bundles all dependencies and self-updates from GitHub Releases.
+          </div>
+          <div v-if="executableDownload" class="download-note">
+            Latest executable release published
+            {{ formatDate(executableDownload.release.published_at) }}.
+          </div>
+          <div v-if="executableDownload" class="download-actions">
+            <a
+              v-for="asset in executableDownload.assets"
+              :key="asset.browser_download_url"
+              class="download-action"
+              :href="asset.browser_download_url"
+            >
+              {{ assetLabel(asset.name) }}
+              <span>{{ formatSize(asset.size) }}</span>
+            </a>
+          </div>
+          <div v-if="executableDownload" class="download-links">
+            <a class="download-pill" :href="executableDownload.release.html_url">Release notes</a>
+          </div>
+          <div v-else class="download-note">
+            No recent stable release contains standalone executables yet. Use pip install
+            or build from source.
+          </div>
+        </article>
+
         <article class="download-card">
           <div class="download-card-header">
             <div>
-              <div class="download-kicker">1. Run the runtime</div>
-              <h3>Agent Server</h3>
+              <div class="download-kicker">Alternative: pip install</div>
+              <h3>Agent Server (Python)</h3>
             </div>
             <div v-if="agentDownload" class="download-release-chip">
               {{ agentDownload.release.tag_name }}

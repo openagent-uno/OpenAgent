@@ -4,24 +4,29 @@
 
 The Gateway is OpenAgent's single public interface — a WebSocket + REST server on one port (default 8765). All clients connect through it.
 
+When running multiple agents, each gets its own Gateway on a separate port. If the preferred port is busy, the next available port is auto-allocated (scans +1 through +99). The actual port is written to `<agent_dir>/.port` for discovery.
+
 ```
-                    ┌─────────────────────────┐
-                    │   OpenAgent Core        │
-                    │   Agent + MCPs          │
-                    └──────────┬──────────────┘
-                               │
-                    ┌──────────▼──────────────┐
-                    │      Gateway            │
-                    │   WS + REST (aiohttp)   │
-                    │   Port 8765             │
-                    └──────────┬──────────────┘
-                               │
-          ┌────────────────────┼────────────────┐
-          │                    │                 │
-    ┌─────▼──────┐      ┌─────▼──────┐   ┌─────▼──────┐
-    │  Bridges   │      │ Desktop App│   │    CLI     │
-    │ TG/DC/WA   │      │ (Electron) │   │ (terminal) │
-    └────────────┘      └────────────┘   └────────────┘
+ ┌────────────────────────────────────────────────────────┐
+ │  Agent Directory (./my-agent)                          │
+ │  ┌─────────────────────────┐                           │
+ │  │   OpenAgent Core        │  openagent.yaml           │
+ │  │   Agent + MCPs          │  openagent.db             │
+ │  └──────────┬──────────────┘  memories/                │
+ │             │                  logs/                    │
+ │  ┌──────────▼──────────────┐  .port                    │
+ │  │      Gateway            │                           │
+ │  │   WS + REST (aiohttp)   │                           │
+ │  │   Port auto-allocated   │                           │
+ │  └──────────┬──────────────┘                           │
+ └─────────────┼──────────────────────────────────────────┘
+               │
+  ┌────────────┼────────────────┐
+  │            │                 │
+┌─▼──────┐ ┌──▼─────────┐ ┌────▼───┐
+│Bridges │ │ Desktop App│ │  CLI   │
+│TG/DC/WA│ │ (Electron) │ │(term.) │
+└────────┘ └────────────┘ └────────┘
 ```
 
 ### WebSocket Protocol
@@ -32,10 +37,13 @@ See `openagent/gateway/protocol.py` for the full spec.
 
 ```
 GET  /api/health                → agent status
+GET  /api/agent-info            → agent name, dir, port, version
 GET  /api/vault/notes           → list notes
 GET  /api/vault/graph           → graph data
 GET  /api/config                → read config
 PATCH /api/config/{section}     → update config section
+POST /api/update                → trigger update + restart
+POST /api/restart               → restart agent
 ```
 
 ## Bridges

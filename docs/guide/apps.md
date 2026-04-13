@@ -13,10 +13,18 @@ Most setups look like this:
 This is the actual OpenAgent runtime in `openagent/`.
 
 - Runs the model provider, MCP tools, memory, channels, scheduler, and auto-update flow
-- Installs as `openagent-framework`
+- Available as a **standalone executable** (no Python required) or as a pip package (`openagent-framework`)
 - Lives on the machine where the agent should run continuously
+- Supports multiple independent agents via agent directories
 
-Typical install:
+Typical install (standalone executable):
+
+```bash
+# Download from GitHub Releases, extract, then:
+./openagent serve ./my-agent
+```
+
+Or via pip:
 
 ```bash
 pip install openagent-framework[all]
@@ -58,11 +66,33 @@ This is the browser build of the same React Native app that powers the Desktop A
 ## Distribution Model
 
 - Tagged GitHub releases are the shared download point for the three installable apps.
-- The Agent Server and CLI Client are attached as Python package artifacts.
+- The Agent Server is attached as **standalone executables** (macOS, Linux, Windows) and Python package artifacts.
+- The CLI Client is attached as Python package artifacts.
 - The Desktop App is attached as macOS, Windows, and Linux installers.
-- The Agent Server also supports install and auto-update flows after installation.
+- The standalone executable self-updates from GitHub Releases automatically (no pip needed).
+- The pip-installed version auto-updates via `pip install --upgrade`.
 - The Web App is published continuously to GitHub Pages from the `main` branch, so `openagent.uno/app` always reflects the latest source.
 - The [Downloads](../downloads.md) page resolves the newest available GitHub asset for each installable app separately, so one missing artifact family does not hide the others.
+
+## Multi-Agent
+
+The Agent Server supports running multiple independent agents in parallel. Each agent runs from its own **agent directory** containing all data:
+
+```
+my-agent/
+├── openagent.yaml    # config (models, MCPs, channels)
+├── openagent.db      # SQLite database (tasks, usage)
+├── memories/         # Memory vault (markdown notes)
+└── logs/             # Log files
+```
+
+Start agents from different directories:
+```bash
+./openagent serve ./agent-work
+./openagent serve ./agent-home
+```
+
+Ports are auto-allocated to avoid conflicts. Each agent registers as a separate OS service with a unique name derived from its directory.
 
 ## Model-Agnostic Behavior
 

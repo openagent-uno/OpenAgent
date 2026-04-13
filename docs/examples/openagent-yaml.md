@@ -2,6 +2,10 @@
 
 This is the full production-style example configuration currently shipped with the repository.
 
+::: tip Multi-Agent Mode
+When using agent directories (`openagent serve ./my-agent`), this file lives at `./my-agent/openagent.yaml` alongside the database, memories, and logs. The `memory.db_path` and `memory.vault_path` fields are optional — they default to the agent directory. Each agent directory is fully self-contained.
+:::
+
 ```yaml
 # OpenAgent example configuration — full production-style setup.
 #
@@ -11,8 +15,9 @@ This is the full production-style example configuration currently shipped with t
 # Google Analytics, etc.), scheduled tasks, dream mode, and auto-update —
 # all driven by a single YAML file.
 #
-# Data paths: by default OpenAgent stores config, DB, memories, and logs
-# in the platform-standard directory:
+# Data paths: when using agent directories (openagent serve ./my-agent),
+# all data lives inside the agent directory automatically. Otherwise,
+# OpenAgent stores files in platform-standard directories:
 #   - macOS:   ~/Library/Application Support/OpenAgent/
 #   - Linux:   ~/.config/openagent/ (config), ~/.local/share/openagent/ (data)
 #   - Windows: %APPDATA%\OpenAgent\

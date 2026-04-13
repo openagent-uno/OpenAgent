@@ -30,8 +30,10 @@ features:
     details: Expose the same agent through Telegram, Discord, WhatsApp, desktop, and CLI with recurring tasks, stop controls, and status updates.
   - title: Obsidian-native memory
     details: Notes stay as plain markdown with wikilinks and frontmatter, so the vault is inspectable, portable, and easy to open in Obsidian.
-  - title: Four access surfaces
-    details: Open the hosted Web App in any browser, or install the Agent Server where the runtime should live and add the CLI Client or Desktop App separately from GitHub Releases.
+  - title: Download and run
+    details: The Agent Server ships as a standalone executable for macOS, Linux, and Windows. No Python required. Self-updates from GitHub Releases automatically. Also available via pip.
+  - title: Multi-agent ready
+    details: Run multiple independent agents in parallel, each with its own config, memory, database, and port. Just point each instance at a different directory.
 ---
 
 <div class="brand-section">
@@ -48,7 +50,7 @@ OpenAgent is one system with multiple ways in. Open the hosted Web App for an in
   </div>
   <div class="brand-card">
     <h3>Agent Server</h3>
-    <p>The persistent runtime in <code>openagent/</code>. This is the actual agent process with models, MCP tools, memory, channels, scheduler, and install or auto-update behavior.</p>
+    <p>The persistent runtime — download the standalone executable or install via pip. Runs models, MCP tools, memory, channels, scheduler, and auto-updates. Supports multiple independent agents.</p>
     <p><a href="/downloads#agent-server">Download the server</a></p>
   </div>
   <div class="brand-card">
@@ -80,7 +82,7 @@ OpenAgent is one system with multiple ways in. Open the hosted Web App for an in
 <div class="brand-flow">
   <div class="brand-flow-step">
     <strong>1. Run the Agent Server</strong>
-    <p>Install <code>openagent-framework</code> on the machine that should keep memory, channels, models, and schedules alive.</p>
+    <p>Download the standalone executable or <code>pip install openagent-framework</code> on the machine that should keep memory, channels, models, and schedules alive.</p>
   </div>
   <div class="brand-flow-step">
     <strong>2. Pick your client</strong>

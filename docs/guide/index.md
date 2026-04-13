@@ -2,6 +2,8 @@
 
 OpenAgent is model agnostic by design and offers four access surfaces: a hosted Web App plus three independent installable apps (Agent Server, CLI Client, Desktop App). The Agent Server runs the actual runtime; the Web App, CLI, and Desktop App are separate clients that connect to it.
 
+The Agent Server is available as a **standalone executable** (no Python required) or via pip. It supports **multiple independent agents** running in parallel, each with its own config, memory, database, and port.
+
 ## Start Here
 
 - [Open the Web App](https://openagent.uno/app/)

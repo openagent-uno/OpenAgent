@@ -76,12 +76,15 @@ Environment variables are substituted using `${VAR_NAME}` syntax.
 ## CLI Reference
 
 ```bash
-# Chat / serve
-openagent chat                         # interactive chat
-openagent chat -m zhipu                # specific provider
-openagent chat --model-id glm-4-flash  # override model
+# Serve
 openagent serve                        # full agent + channels + scheduler
+openagent serve ./my-agent             # serve from agent directory
 openagent serve -ch telegram           # single channel
+
+# Multi-agent
+openagent -d ./my-agent serve          # equivalent to serve ./my-agent
+openagent list                         # list running agents
+openagent migrate --to ./my-agent      # copy data to agent directory
 
 # Doctor & setup
 openagent doctor
@@ -102,7 +105,27 @@ openagent update
 # MCP
 openagent mcp list
 
-# Options
+# Providers
+openagent provider list
+openagent provider add <name> --key=<api-key>
+openagent provider remove <name>
+openagent provider test <name>
+
+# Global options
 openagent -c custom.yaml serve        # custom config
+openagent -d ./my-agent serve         # agent directory
 openagent -v serve                    # verbose logging
 ```
+
+### Agent Directory (`--agent-dir` / `-d`)
+
+When set, all data (config, database, memories, logs) is resolved relative to the specified directory instead of platform-standard locations. This enables running multiple independent agents:
+
+```bash
+openagent serve ./agent-a             # shorthand
+openagent -d ./agent-a serve          # equivalent long form
+openagent -d ./agent-a task list      # tasks for agent-a
+openagent -d ./agent-a status         # service status for agent-a
+```
+
+The directory is created automatically with default config if it doesn't exist.

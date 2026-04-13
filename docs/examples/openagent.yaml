@@ -6,8 +6,9 @@
 # Google Analytics, etc.), scheduled tasks, dream mode, and auto-update —
 # all driven by a single YAML file.
 #
-# Data paths: by default OpenAgent stores config, DB, memories, and logs
-# in the platform-standard directory:
+# Data paths: when using agent directories (openagent serve ./my-agent),
+# all data lives inside the agent directory automatically. Otherwise,
+# OpenAgent stores files in platform-standard directories:
 #   - macOS:   ~/Library/Application Support/OpenAgent/
 #   - Linux:   ~/.config/openagent/ (config), ~/.local/share/openagent/ (data)
 #   - Windows: %APPDATA%\OpenAgent\

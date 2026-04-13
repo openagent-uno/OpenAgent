@@ -44,14 +44,27 @@ Use the Web App when you want the OpenAgent UI on a machine where you cannot (or
 
 Install this if you want to run OpenAgent itself.
 
+### Standalone Executable (recommended)
+
+Download the latest executable for your platform from GitHub Releases below, extract it, and run:
+
+```bash
+./openagent serve ./my-agent
+```
+
+No Python required. The executable bundles everything needed. On first run it creates an agent directory with default config, database, and memory vault.
+
+### pip install
+
 ```bash
 pip install openagent-framework[all]
 openagent serve
 ```
 
-- GitHub Releases attach the Agent Server Python package as release assets.
+- GitHub Releases attach both standalone executables and Python package assets.
 - The Agent Server owns installation, service setup, and auto-update behavior.
 - This is the component that talks to models, MCP servers, memory, channels, and scheduled jobs.
+- The standalone executable self-updates from GitHub Releases automatically.
 
 ## CLI Client
 
@@ -94,8 +107,9 @@ cd app
 
 ## Release Workflow
 
-- Tagged releases publish three artifact families:
-  - Agent Server Python package
+- Tagged releases publish four artifact families:
+  - Agent Server standalone executables (macOS, Linux, Windows)
+  - Agent Server Python package (pip)
   - CLI Client Python package
   - Desktop App installers and update metadata
 - The download cards above update automatically when a new stable GitHub release is published for that app family.
