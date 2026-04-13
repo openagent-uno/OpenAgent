@@ -18,7 +18,7 @@ export default defineConfig({
     ["link", { rel: "icon", href: `${base}favicon/favicon.svg`, type: "image/svg+xml" }],
     ["link", { rel: "apple-touch-icon", href: `${base}favicon/apple-touch-icon.png` }],
     ["link", { rel: "manifest", href: `${base}favicon/site.webmanifest` }],
-    ["meta", { name: "theme-color", content: "#ef4136" }],
+    ["meta", { name: "theme-color", content: "#ffffff" }],
     ["meta", { property: "og:type", content: "website" }],
     ["meta", { property: "og:site_name", content: "OpenAgent" }],
     ["meta", { property: "og:title", content: "OpenAgent" }],
