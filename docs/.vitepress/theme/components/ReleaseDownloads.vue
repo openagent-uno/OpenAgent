@@ -153,17 +153,14 @@ const cliDownload = computed(() =>
 const desktopDownloads = computed(() => [
   {
     name: "macOS",
-    summary: "Open the DMG and move OpenAgent to Applications.",
     match: findLatestMatch((asset) => isMacDesktopAsset(asset.name)),
   },
   {
     name: "Windows",
-    summary: "Run the installer and complete the setup flow.",
     match: findLatestMatch((asset) => isWindowsDesktopAsset(asset.name)),
   },
   {
     name: "Linux",
-    summary: "Pick the AppImage or distro package that fits your machine.",
     match: findLatestMatch((asset) => isLinuxDesktopAsset(asset.name)),
   },
 ]);
@@ -193,7 +190,7 @@ onMounted(async () => {
 <template>
   <div class="downloads-shell">
     <div v-if="loading" class="download-state">
-      Fetching recent GitHub releases and resolving the newest download for each app.
+      Loading releases…
     </div>
 
     <div v-else-if="error" class="download-state">
@@ -206,12 +203,8 @@ onMounted(async () => {
 
     <template v-else>
       <div class="release-meta">
-        <strong>Latest available downloads per app</strong>
         <div class="download-note">
-          These cards scan recent stable releases and pick the newest tag that actually
-          contains each artifact family. The Agent Server, CLI Client, and Desktop App can
-          therefore point to different releases without hiding macOS, Windows, or Linux
-          downloads.
+          Newest stable build per app. Server, CLI, and Desktop may be on different tags.
         </div>
         <div class="download-links">
           <a class="download-pill" :href="allReleasesUrl">All releases</a>
@@ -229,15 +222,8 @@ onMounted(async () => {
               {{ serverDownload.release.tag_name }}
             </div>
           </div>
-          <div class="download-note">
-            Single-file binary — no Python required, no folders to unpack.
-            Run <code>curl -fsSL https://openagent.uno/install.sh | sh</code>,
-            or grab the archive below and extract the one <code>openagent</code>
-            binary inside.
-          </div>
           <div v-if="serverDownload" class="download-note">
-            Latest server release published
-            {{ formatDate(serverDownload.release.published_at) }}.
+            Published {{ formatDate(serverDownload.release.published_at) }}.
           </div>
           <div v-if="serverDownload" class="download-actions">
             <a
@@ -254,8 +240,7 @@ onMounted(async () => {
             <a class="download-pill" :href="serverDownload.release.html_url">Release notes</a>
           </div>
           <div v-else class="download-note">
-            No recent stable release contains server executables yet. Browse all
-            releases or build from source.
+            No recent stable server build. Browse all releases or build from source.
           </div>
         </article>
 
@@ -269,13 +254,8 @@ onMounted(async () => {
               {{ cliDownload.release.tag_name }}
             </div>
           </div>
-          <div class="download-note">
-            Single-file binary for the terminal client. Install with
-            <code>curl -fsSL https://openagent.uno/install.sh | sh -s -- --cli</code>,
-            or extract the archive to get one <code>openagent-cli</code> file.
-          </div>
           <div v-if="cliDownload" class="download-note">
-            Latest CLI release published {{ formatDate(cliDownload.release.published_at) }}.
+            Published {{ formatDate(cliDownload.release.published_at) }}.
           </div>
           <div v-if="cliDownload" class="download-actions">
             <a
@@ -292,8 +272,7 @@ onMounted(async () => {
             <a class="download-pill" :href="cliDownload.release.html_url">Release notes</a>
           </div>
           <div v-else class="download-note">
-            No recent stable release contains CLI executables yet. Browse all releases
-            or build from source.
+            No recent stable CLI build. Browse all releases or build from source.
           </div>
         </article>
 
@@ -303,9 +282,6 @@ onMounted(async () => {
               <div class="download-kicker">3. Add the visual client</div>
               <h3>Desktop App</h3>
             </div>
-          </div>
-          <div class="download-note">
-            Platform-specific Electron installers that connect to a running Agent Server.
           </div>
           <div class="download-platform-list">
             <div
@@ -319,7 +295,6 @@ onMounted(async () => {
                   {{ platform.match.release.tag_name }}
                 </span>
               </div>
-              <div class="download-note">{{ platform.summary }}</div>
               <div v-if="platform.match" class="download-actions">
                 <a
                   v-for="asset in platform.match.assets"
@@ -332,8 +307,7 @@ onMounted(async () => {
                 </a>
               </div>
               <div v-if="platform.match" class="download-note">
-                Latest {{ platform.name }} build published
-                {{ formatDate(platform.match.release.published_at) }}.
+                Published {{ formatDate(platform.match.release.published_at) }}.
               </div>
               <div v-if="platform.match" class="download-links">
                 <a class="download-pill" :href="platform.match.release.html_url">
@@ -341,8 +315,7 @@ onMounted(async () => {
                 </a>
               </div>
               <div v-else class="download-note">
-                No recent {{ platform.name }} desktop installer is attached yet. Browse all
-                releases or build from source.
+                No recent {{ platform.name }} build.
               </div>
             </div>
           </div>
