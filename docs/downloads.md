@@ -42,56 +42,48 @@ Use the Web App when you want the OpenAgent UI on a machine where you cannot (or
 
 ## Agent Server
 
-Install this if you want to run OpenAgent itself.
+Install this if you want to run OpenAgent itself. Distributed as a **standalone executable** — no Python required.
 
-### Standalone Executable (recommended)
-
-Download the latest executable for your platform from GitHub Releases below, extract it, and run:
+Pick your platform's archive from the download cards below, extract it, and run:
 
 ```bash
 ./openagent serve ./my-agent
 ```
 
-No Python required. The executable bundles everything needed. On first run it creates an agent directory with default config, database, and memory vault.
+- The archive bundles every dependency the server needs.
+- On first run it creates an agent directory with default config, database, and memory vault.
+- The executable self-updates from GitHub Releases automatically.
+- All artifacts ship through GitHub Releases — there is no PyPI channel.
 
-### pip install
-
-```bash
-pip install openagent-framework[all]
-openagent serve
-```
-
-- GitHub Releases attach both standalone executables and Python package assets.
-- The Agent Server owns installation, service setup, and auto-update behavior.
-- This is the component that talks to models, MCP servers, memory, channels, and scheduled jobs.
-- The standalone executable self-updates from GitHub Releases automatically.
+Archive filenames follow the pattern `openagent-<version>-<platform>-<arch>.(tar.gz|zip)`.
 
 ## CLI Client
 
-Install this if you want a terminal UI for an already running OpenAgent server.
+Install this if you want a terminal UI for an already running OpenAgent server. Also distributed as a standalone executable — no Python required.
+
+Download the archive for your platform from the cards below, extract it, and run:
 
 ```bash
-pip install openagent-cli
-openagent-cli connect localhost:8765 --token mysecret
+./openagent-cli connect localhost:8765 --token mysecret
 ```
 
 - The CLI is a separate app and does not run the agent server for you.
 - It connects to any OpenAgent Gateway over WebSocket.
-- Tagged releases attach CLI package artifacts alongside the other release assets.
+- Archive filenames follow the pattern `openagent-cli-<version>-<platform>-<arch>.(tar.gz|zip)`.
 
 ## Desktop App
 
-Install this if you want the Electron UI.
+Install this if you want the Electron UI. Installer filenames follow the pattern `openagent-app-<version>-<platform>-<arch>.<ext>`.
 
-- **macOS**: download the `.dmg`, open it, and move OpenAgent to Applications.
-- **Windows**: download the `.exe` installer and complete the setup flow.
-- **Linux**: download the `.AppImage` or `.deb`, then launch the app and connect it to a running Agent Server.
+- **macOS**: download `openagent-app-<ver>-macos-<arch>.dmg`, open it, and move OpenAgent to Applications. The `arm64` build is for Apple Silicon; the `x64` build is for Intel Macs.
+- **Windows**: download `openagent-app-<ver>-windows-x64.exe` and complete the setup flow.
+- **Linux**: download `openagent-app-<ver>-linux-x64.AppImage` or `.deb`, then launch the app and connect it to a running Agent Server.
 
-The Desktop App is also independent: it is a client, not the runtime itself.
+The Desktop App is also independent: it is a client, not the runtime itself. The `latest*.yml` files attached to each release are auto-update metadata for Electron's updater — you do not need to download them manually.
 
 ## Latest GitHub Downloads
 
-The cards below scan recent stable GitHub releases and always show the newest available download for each product family. That matters because the latest Agent Server tag may differ from the latest CLI tag, and desktop installers can land on a different release than the Python packages.
+The cards below scan recent stable GitHub releases and always show the newest available download for each product family. That matters because the latest Agent Server tag may differ from the latest CLI or Desktop App tag.
 
 <ReleaseDownloads />
 
@@ -105,12 +97,18 @@ cd app
 ./build.sh linux
 ```
 
+For the server/CLI executables, see `scripts/build-executable.sh` and the repo-root PyInstaller specs (`openagent.spec`, `cli.spec`).
+
 ## Release Workflow
 
-- Tagged releases publish four artifact families:
-  - Agent Server standalone executables (macOS, Linux, Windows)
-  - Agent Server Python package (pip)
-  - CLI Client Python package
-  - Desktop App installers and update metadata
-- The download cards above update automatically when a new stable GitHub release is published for that app family.
-- If a given app is not attached to any recent stable release yet, browse the full release history or build from source.
+Tagged releases (`v*`) publish three executable families, all on GitHub Releases — no PyPI:
+
+| Family | Archive pattern | Platforms |
+|---|---|---|
+| Agent Server | `openagent-<ver>-<platform>-<arch>.(tar.gz\|zip)` | macOS, Linux, Windows |
+| CLI Client | `openagent-cli-<ver>-<platform>-<arch>.(tar.gz\|zip)` | macOS, Linux, Windows |
+| Desktop App | `openagent-app-<ver>-<platform>-<arch>.(dmg\|exe\|AppImage\|deb)` | macOS, Windows, Linux |
+
+Each server/CLI archive also ships a `.sha256` checksum. The Desktop App additionally uploads `latest*.yml` files used by the Electron auto-updater.
+
+The download cards above update automatically when a new stable GitHub release is published for that app family. If a given app is not attached to any recent stable release yet, browse the full release history or build from source.

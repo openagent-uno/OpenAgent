@@ -30,17 +30,22 @@ const loading = ref(true);
 const error = ref("");
 const releases = ref<Release[]>([]);
 
-function isAgentAsset(name: string) {
-  return /^openagent[_-]framework.*(\.whl|\.tar\.gz)$/i.test(name);
+// Matches the server standalone executable archive.
+// Example: openagent-0.4.1-macos-arm64.tar.gz / openagent-0.4.1-windows-x64.zip
+// The leading `openagent-<digit>` guard prevents this from matching CLI archives
+// (which start with `openagent-cli-`).
+function isServerExecutableAsset(name: string) {
+  return /^openagent-\d+\.\d+\.\d+-(macos|linux|windows)-(arm64|x64)\.(tar\.gz|zip)$/i.test(
+    name,
+  );
 }
 
-function isCliAsset(name: string) {
-  return /^openagent[_-]cli.*(\.whl|\.tar\.gz)$/i.test(name);
-}
-
-function isExecutableAsset(name: string) {
-  // Matches standalone executable archives like openagent-0.3.22-macos-arm64.tar.gz
-  return /^openagent-\d+\.\d+\.\d+-(macos|linux|windows)-(arm64|x64)\.(tar\.gz|zip)$/i.test(name);
+// Matches the CLI standalone executable archive.
+// Example: openagent-cli-0.4.1-macos-arm64.tar.gz / openagent-cli-0.4.1-windows-x64.zip
+function isCliExecutableAsset(name: string) {
+  return /^openagent-cli-\d+\.\d+\.\d+-(macos|linux|windows)-(arm64|x64)\.(tar\.gz|zip)$/i.test(
+    name,
+  );
 }
 
 function isMacDesktopAsset(name: string) {
@@ -72,8 +77,13 @@ function formatDate(dateString: string) {
 }
 
 function archLabel(name: string): string {
-  if (/arm64/i.test(name)) return " (Apple Silicon)";
-  if (/x64|amd64/i.test(name) && !/arm/i.test(name)) return " (Intel)";
+  const isMac = /\b(macos|mac|darwin)\b/i.test(name);
+  if (/arm64/i.test(name)) {
+    return isMac ? " (Apple Silicon)" : " (ARM64)";
+  }
+  if (/x64|amd64/i.test(name) && !/arm/i.test(name)) {
+    return isMac ? " (Intel)" : " (64-bit)";
+  }
   if (/universal/i.test(name)) return " (Universal)";
   return "";
 }
@@ -87,13 +97,11 @@ function executablePlatformLabel(name: string): string {
 
 function assetLabel(name: string) {
   const arch = archLabel(name);
-  // Standalone executables
-  if (isExecutableAsset(name)) {
+  // Standalone server and CLI executables share the same naming convention
+  if (isServerExecutableAsset(name) || isCliExecutableAsset(name)) {
     const plat = executablePlatformLabel(name);
     return `${plat}${arch}`;
   }
-  if (/\.whl$/i.test(name)) return "Python wheel";
-  if (/\.tar\.gz$/i.test(name)) return "Source tarball";
   if (/\.dmg$/i.test(name)) return `DMG${arch}`;
   if (/\.exe$/i.test(name)) return `Installer${arch}`;
   if (/\.msi$/i.test(name)) return `MSI${arch}`;
@@ -104,15 +112,15 @@ function assetLabel(name: string) {
 }
 
 function assetPriority(name: string) {
+  // Executable archives: prefer tar.gz (Unix) over zip (Windows) only for ordering.
   if (/\.dmg$/i.test(name)) return 0;
   if (/\.exe$/i.test(name)) return 0;
   if (/\.AppImage$/i.test(name)) return 0;
-  if (/\.whl$/i.test(name)) return 0;
+  if (/\.tar\.gz$/i.test(name)) return 1;
   if (/\.zip$/i.test(name)) return 1;
-  if (/\.msi$/i.test(name)) return 1;
-  if (/\.deb$/i.test(name)) return 1;
-  if (/\.rpm$/i.test(name)) return 2;
-  if (/\.tar\.gz$/i.test(name)) return 2;
+  if (/\.msi$/i.test(name)) return 2;
+  if (/\.deb$/i.test(name)) return 2;
+  if (/\.rpm$/i.test(name)) return 3;
   return 9;
 }
 
@@ -134,16 +142,12 @@ const stableReleases = computed(() =>
   releases.value.filter((release) => !release.draft && !release.prerelease),
 );
 
-const executableDownload = computed(() =>
-  findLatestMatch((asset) => isExecutableAsset(asset.name)),
-);
-
-const agentDownload = computed(() =>
-  findLatestMatch((asset) => isAgentAsset(asset.name)),
+const serverDownload = computed(() =>
+  findLatestMatch((asset) => isServerExecutableAsset(asset.name)),
 );
 
 const cliDownload = computed(() =>
-  findLatestMatch((asset) => isCliAsset(asset.name)),
+  findLatestMatch((asset) => isCliExecutableAsset(asset.name)),
 );
 
 const desktopDownloads = computed(() => [
@@ -218,24 +222,24 @@ onMounted(async () => {
         <article class="download-card download-card-wide">
           <div class="download-card-header">
             <div>
-              <div class="download-kicker">Recommended</div>
-              <h3>Standalone Executable</h3>
+              <div class="download-kicker">1. Run the runtime</div>
+              <h3>Agent Server</h3>
             </div>
-            <div v-if="executableDownload" class="download-release-chip">
-              {{ executableDownload.release.tag_name }}
+            <div v-if="serverDownload" class="download-release-chip">
+              {{ serverDownload.release.tag_name }}
             </div>
           </div>
           <div class="download-note">
             Download-and-run binaries for the Agent Server. No Python required.
             Bundles all dependencies and self-updates from GitHub Releases.
           </div>
-          <div v-if="executableDownload" class="download-note">
-            Latest executable release published
-            {{ formatDate(executableDownload.release.published_at) }}.
+          <div v-if="serverDownload" class="download-note">
+            Latest server release published
+            {{ formatDate(serverDownload.release.published_at) }}.
           </div>
-          <div v-if="executableDownload" class="download-actions">
+          <div v-if="serverDownload" class="download-actions">
             <a
-              v-for="asset in executableDownload.assets"
+              v-for="asset in serverDownload.assets"
               :key="asset.browser_download_url"
               class="download-action"
               :href="asset.browser_download_url"
@@ -244,54 +248,16 @@ onMounted(async () => {
               <span>{{ formatSize(asset.size) }}</span>
             </a>
           </div>
-          <div v-if="executableDownload" class="download-links">
-            <a class="download-pill" :href="executableDownload.release.html_url">Release notes</a>
+          <div v-if="serverDownload" class="download-links">
+            <a class="download-pill" :href="serverDownload.release.html_url">Release notes</a>
           </div>
           <div v-else class="download-note">
-            No recent stable release contains standalone executables yet. Use pip install
-            or build from source.
+            No recent stable release contains server executables yet. Browse all
+            releases or build from source.
           </div>
         </article>
 
-        <article class="download-card">
-          <div class="download-card-header">
-            <div>
-              <div class="download-kicker">Alternative: pip install</div>
-              <h3>Agent Server (Python)</h3>
-            </div>
-            <div v-if="agentDownload" class="download-release-chip">
-              {{ agentDownload.release.tag_name }}
-            </div>
-          </div>
-          <div class="download-note">
-            Python package assets for the persistent OpenAgent runtime in
-            <code>openagent/</code>.
-          </div>
-          <div v-if="agentDownload" class="download-note">
-            Latest package release published
-            {{ formatDate(agentDownload.release.published_at) }}.
-          </div>
-          <div v-if="agentDownload" class="download-actions">
-            <a
-              v-for="asset in agentDownload.assets"
-              :key="asset.browser_download_url"
-              class="download-action"
-              :href="asset.browser_download_url"
-            >
-              {{ assetLabel(asset.name) }}
-              <span>{{ formatSize(asset.size) }}</span>
-            </a>
-          </div>
-          <div v-if="agentDownload" class="download-links">
-            <a class="download-pill" :href="agentDownload.release.html_url">Release notes</a>
-          </div>
-          <div v-else class="download-note">
-            No recent stable release contains an Agent Server package yet. Browse all
-            releases or use the install command shown above.
-          </div>
-        </article>
-
-        <article class="download-card">
+        <article class="download-card download-card-wide">
           <div class="download-card-header">
             <div>
               <div class="download-kicker">2. Add a terminal client</div>
@@ -302,8 +268,8 @@ onMounted(async () => {
             </div>
           </div>
           <div class="download-note">
-            Separate Python package assets for the terminal client that connects to a
-            running OpenAgent Gateway.
+            Download-and-run binaries for the terminal client that connects to a
+            running OpenAgent Gateway. No Python required.
           </div>
           <div v-if="cliDownload" class="download-note">
             Latest CLI release published {{ formatDate(cliDownload.release.published_at) }}.
@@ -323,8 +289,8 @@ onMounted(async () => {
             <a class="download-pill" :href="cliDownload.release.html_url">Release notes</a>
           </div>
           <div v-else class="download-note">
-            No recent stable release contains a CLI package yet. Browse all releases or use
-            the install command documented above.
+            No recent stable release contains CLI executables yet. Browse all releases
+            or build from source.
           </div>
         </article>
 
