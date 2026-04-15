@@ -1,94 +1,103 @@
 # Getting Started
 
-This guide installs the **Agent Server**. The CLI Client and Desktop App are separate downloads that connect to a running server.
+Welcome! This page walks you from zero to a running agent in a few minutes. Pick the path that matches how you want to use OpenAgent — no account, no sign-up, nothing to configure upfront.
 
-## Installation
+## The pieces, in plain English
 
-### Option A: Standalone Executable (recommended)
+OpenAgent ships as four things that work together:
 
-Download the latest executable for your platform from [GitHub Releases](https://github.com/geroale/OpenAgent/releases):
+- **Web App** — opens in your browser. Nothing to install.
+- **Agent Server** — the actual agent. Runs on your computer (or a server you own) and keeps your agent alive.
+- **Desktop App** — a native chat window for the agent. Optional.
+- **CLI Client** — a terminal client. Optional.
 
-- **macOS**: `openagent-*-macos-arm64.tar.gz` (Apple Silicon) or `openagent-*-macos-x64.tar.gz` (Intel)
-- **Linux**: `openagent-*-linux-x64.tar.gz`
-- **Windows**: `openagent-*-windows-x64.zip`
+You only *need* the **Agent Server**. Everything else is a way to talk to it.
 
-Extract and run — no Python required. The executable bundles all dependencies and self-updates from GitHub Releases.
+## Try it first (zero install)
 
-::: info Prerequisites
-Node.js 18+ is required for the built-in MCP servers (filesystem, editor, shell, web-search, etc.).
+Open the hosted web app in any browser:
+
+<div style="margin: 1.5rem 0;">
+  <a href="https://openagent.uno/app/" class="download-pill" style="display:inline-block; padding: 0.75rem 1.5rem; font-weight: 600;">→ Open the Web App</a>
+</div>
+
+You'll still need an Agent Server running somewhere to connect to. Grab one below.
+
+## Download
+
+Pick your platform — each card below auto-updates to the latest release.
+
+<ReleaseDownloads />
+
+::: tip Which do I need?
+Start with just the **Agent Server**. Add the **Desktop App** or **CLI Client** later if you want them.
 :::
 
-### Option B: pip install
+## Install
+
+### macOS
+
+Double-click the `.pkg` installer. It's signed and notarized — Finder launches it with no warnings. The server lands at `/usr/local/bin/openagent`.
+
+Prefer the terminal?
 
 ```bash
-pip install openagent-framework[all]
+curl -fsSL https://openagent.uno/install.sh | sh
 ```
 
-Individual extras:
+### Linux
+
 ```bash
-pip install openagent-framework          # core server runtime
-pip install openagent-framework[telegram] # + Telegram
-pip install openagent-framework[discord]  # + Discord
-pip install openagent-framework[whatsapp] # + WhatsApp
-pip install openagent-framework[websocket] # + WebSocket channel
-pip install openagent-framework[voice]    # + local voice transcription (faster-whisper)
-pip install openagent-framework[all]      # everything
+curl -fsSL https://openagent.uno/install.sh | sh
 ```
 
-## First Run
+Works on any modern distro (glibc ≥ 2.31).
 
-### With agent directory (recommended for multi-agent)
+### Windows
+
+Extract the `.zip` and double-click `openagent.exe`. On first launch Windows SmartScreen will show a prompt — click **More info → Run anyway**.
+
+## First run
+
+Pick a folder for your agent's data and start it:
 
 ```bash
 openagent serve ./my-agent
 ```
 
-This creates `./my-agent/` with a default `openagent.yaml`, database, memory vault, and logs. Edit `./my-agent/openagent.yaml` to configure your agent.
+That's it. The command creates `./my-agent/` with a default config, database, and memory vault, then starts the agent on a local port. Open the Web App or Desktop App and point it at the address shown in the terminal.
 
-### Without agent directory (legacy)
+Edit `./my-agent/openagent.yaml` to change the model, add channels (Telegram, Discord…), or wire up MCP tools.
 
-Create `openagent.yaml` in your working directory (or in `~/.config/openagent/` on Linux, `~/Library/Application Support/OpenAgent/` on macOS, `%APPDATA%\OpenAgent\` on Windows):
+## Running multiple agents
 
-```yaml
-name: my-agent
-
-model:
-  provider: claude-cli
-  model_id: claude-sonnet-4-6
-  permission_mode: bypass
-
-channels:
-  telegram:
-    token: ${TELEGRAM_BOT_TOKEN}
-```
+Each folder is a separate agent with its own memory, config, and port:
 
 ```bash
-openagent serve
+openagent serve ./agent-work
+openagent serve ./agent-home
 ```
 
-The agent will:
-1. Load config from `openagent.yaml`
-2. Connect all configured MCPs (8 defaults + your custom ones)
-3. Start configured channels (Telegram, Discord, WebSocket, etc.)
-4. Start the scheduler (if enabled)
+List everything that's running:
 
-Send a message to your Telegram bot — it will respond.
-
-## Running Multiple Agents
-
-Each agent runs from its own directory with independent config, database, memory, and port:
-
-```bash
-openagent serve ./agent-work    # starts on port 8765
-openagent serve ./agent-home    # auto-selects next available port
-```
-
-List running agents:
 ```bash
 openagent list
 ```
 
-Migrate existing data to an agent directory:
+## Alternative: install via pip
+
+Prefer Python? The server is also available as a pip package:
+
 ```bash
-openagent migrate --to ./my-agent
+pip install openagent-framework[all]
+openagent serve ./my-agent
 ```
+
+Individual extras (`[telegram]`, `[discord]`, `[whatsapp]`, `[websocket]`, `[voice]`) let you skip the deps you don't need.
+
+## Next steps
+
+- [Configure your agent](./config-reference.md)
+- [Pick a model](./models.md)
+- [Add MCP tools](./mcp.md)
+- [Connect a channel](./channels.md)

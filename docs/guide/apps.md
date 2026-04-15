@@ -72,7 +72,7 @@ This is the browser build of the same React Native app that powers the Desktop A
 - The standalone executable self-updates from GitHub Releases automatically (no pip needed).
 - The pip-installed version auto-updates via `pip install --upgrade`.
 - The Web App is published continuously to GitHub Pages from the `main` branch, so `openagent.uno/app` always reflects the latest source.
-- The [Downloads](../downloads.md) page resolves the newest available GitHub asset for each installable app separately, so one missing artifact family does not hide the others.
+- The [Getting Started](./getting-started.md) page resolves the newest available GitHub asset for each installable app separately, so one missing artifact family does not hide the others.
 
 ## Multi-Agent
 

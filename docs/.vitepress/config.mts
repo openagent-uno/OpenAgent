@@ -49,7 +49,7 @@ export default defineConfig({
     siteTitle: "OpenAgent",
     nav: [
       { text: "Home", link: "/" },
-      { text: "Downloads", link: "/downloads" },
+      { text: "Download", link: "/guide/getting-started" },
       { text: "Web App", link: "https://openagent.uno/app/" },
       { text: "Docs", link: "/guide/" },
       { text: "Examples", link: "/examples/" },
