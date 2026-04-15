@@ -60,7 +60,6 @@ export default defineConfig({
           text: "Documentation",
           items: [
             { text: "Overview", link: "/guide/" },
-            { text: "Apps & Distribution", link: "/guide/apps" },
             { text: "Getting Started", link: "/guide/getting-started" },
             { text: "Models", link: "/guide/models" },
             { text: "MCP Tools", link: "/guide/mcp" },

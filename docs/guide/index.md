@@ -8,7 +8,6 @@ The Agent Server is available as a **standalone executable** (no Python required
 
 - [Open the Web App](https://openagent.uno/app/)
 - [Getting Started (download + install)](./getting-started.md)
-- [Apps & Distribution](./apps.md)
 - [Desktop App](./desktop-app.md)
 - [Configuration Reference](./config-reference.md)
 

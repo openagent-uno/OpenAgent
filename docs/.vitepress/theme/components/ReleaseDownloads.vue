@@ -144,14 +144,20 @@ const cliDownload = computed(() =>
   findLatestMatch((asset) => isCliExecutableAsset(asset.name)),
 );
 
-const desktopAssets = computed(() => {
-  const match = findLatestMatch(
-    (asset) =>
-      isMacDesktopAsset(asset.name) ||
-      isWindowsDesktopAsset(asset.name) ||
-      isLinuxDesktopAsset(asset.name),
+const desktopAssets = computed<ReleaseMatch | null>(() => {
+  const platforms = [
+    findLatestMatch((asset) => isMacDesktopAsset(asset.name)),
+    findLatestMatch((asset) => isWindowsDesktopAsset(asset.name)),
+    findLatestMatch((asset) => isLinuxDesktopAsset(asset.name)),
+  ].filter((match): match is ReleaseMatch => match !== null);
+  if (!platforms.length) return null;
+  const newest = platforms.reduce((acc, m) =>
+    new Date(m.release.published_at) > new Date(acc.release.published_at) ? m : acc,
   );
-  return match;
+  const assets = platforms
+    .flatMap((m) => m.assets)
+    .sort((a, b) => assetPriority(a.name) - assetPriority(b.name));
+  return { release: newest.release, assets };
 });
 
 onMounted(async () => {
@@ -201,9 +207,6 @@ const activeMatch = computed<ReleaseMatch | null>(() => {
       >
         <span class="download-chip-label">{{ assetLabel(asset.name) }}</span>
         <span class="download-chip-size">{{ formatSize(asset.size) }}</span>
-      </a>
-      <a class="download-chip download-chip-ghost" :href="activeMatch.release.html_url">
-        {{ activeMatch.release.tag_name }} notes
       </a>
     </template>
 
