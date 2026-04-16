@@ -191,7 +191,10 @@ const activeMatch = computed<ReleaseMatch | null>(() => {
 
 <template>
   <div class="downloads-inline">
-    <div v-if="loading" class="downloads-inline-state">Loading latest release…</div>
+    <div v-if="loading" class="downloads-inline-state">
+      <span class="oa-loading-dot"></span>
+      Loading latest release…
+    </div>
 
     <div v-else-if="error" class="downloads-inline-state">
       Release lookup failed.
@@ -215,3 +218,21 @@ const activeMatch = computed<ReleaseMatch | null>(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.oa-loading-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--vp-c-brand-1);
+  margin-right: 8px;
+  animation: oa-pulse 1.4s ease-in-out infinite;
+  vertical-align: middle;
+}
+
+@keyframes oa-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+</style>
