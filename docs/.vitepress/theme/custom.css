@@ -660,18 +660,6 @@ h1, h2, h3, h4, h5, h6 {
 .VPFeatures .items .item:nth-child(5) .VPFeature { animation-delay: 0.25s; }
 .VPFeatures .items .item:nth-child(6) .VPFeature { animation-delay: 0.3s; }
 
-/* Home hero — subtle accent element */
-.VPHero .main::before {
-  content: '';
-  position: absolute;
-  top: -10px;
-  left: 0;
-  width: 40px;
-  height: 2px;
-  background: linear-gradient(90deg, var(--vp-c-brand-1), var(--vp-c-brand-3));
-  border-radius: 1px;
-}
-
 /* Local search overlay polish */
 .VPLocalSearchBox .shell {
   border-radius: 14px !important;
