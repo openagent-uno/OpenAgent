@@ -148,11 +148,22 @@ if [ "$OS" = "macos" ]; then
     if [ -z "$BINARY" ]; then
         BINARY=$(find "$TMP/pkg-expanded" -type f -name "$APP" 2>/dev/null | head -1)
     fi
+    # Pick up the optional computer-control sidecar if the .pkg ships it.
+    SIDECAR=$(find "$TMP/pkg-expanded" -type f -name "openagent-computer-control" 2>/dev/null | head -1)
 else
     tar xzf "$TMP/$ARCHIVE" -C "$TMP"
     BINARY="$TMP/$APP"
     if [ ! -x "$BINARY" ] && [ -f "$BINARY" ]; then
         chmod +x "$BINARY"
+    fi
+    # Linux/Windows .tar.gz / .zip ship the sidecar next to the main
+    # binary in the archive root.
+    if [ -f "$TMP/openagent-computer-control" ]; then
+        SIDECAR="$TMP/openagent-computer-control"
+    elif [ -f "$TMP/openagent-computer-control.exe" ]; then
+        SIDECAR="$TMP/openagent-computer-control.exe"
+    else
+        SIDECAR=""
     fi
 fi
 
@@ -167,6 +178,24 @@ DEST="$PREFIX/$APP"
 echo "→ Installing to $DEST"
 cp "$BINARY" "$DEST"
 chmod +x "$DEST"
+
+# Install the computer-control sidecar next to the main binary. This
+# path (``$PREFIX/openagent-computer-control``) is what
+# ``_resolve_native_binary`` looks for at runtime — the Rust binary
+# stays OUTSIDE the PyInstaller archive so its macOS Developer-ID
+# signature (stable ``com.openagent.computer-control`` identifier)
+# survives intact and TCC grants for Accessibility / Screen Recording
+# persist across updates.
+if [ "$PRODUCT" = "server" ] && [ -n "${SIDECAR:-}" ] && [ -f "$SIDECAR" ]; then
+    SIDECAR_NAME=$(basename "$SIDECAR")
+    SIDECAR_DEST="$PREFIX/$SIDECAR_NAME"
+    echo "→ Installing sidecar $SIDECAR_NAME to $SIDECAR_DEST"
+    cp "$SIDECAR" "$SIDECAR_DEST"
+    chmod +x "$SIDECAR_DEST"
+    if [ "$OS" = "macos" ] && command -v xattr >/dev/null 2>&1; then
+        xattr -dr com.apple.quarantine "$SIDECAR_DEST" 2>/dev/null || true
+    fi
+fi
 
 # Belt-and-braces: neither curl nor pkgutil sets com.apple.quarantine,
 # but clear it anyway in case something upstream did.
