@@ -140,23 +140,27 @@ fi
 
 if [ "$OS" = "macos" ]; then
     # ``pkgutil --expand-full`` unpacks the whole .pkg tree (xar archive
-    # + Payload) into a directory — no sudo required, so we can drop the
-    # binary into $HOME rather than running the installer against /.
-    # The binary lives at <expanded>/<component>.pkg/Payload/<install-path>/<name>.
+    # + Payload) into a directory — no sudo required.
     pkgutil --expand-full "$TMP/$ARCHIVE" "$TMP/pkg-expanded"
-    BINARY=$(find "$TMP/pkg-expanded" -type f -name "$APP" -perm +111 2>/dev/null | head -1)
-    if [ -z "$BINARY" ]; then
-        BINARY=$(find "$TMP/pkg-expanded" -type f -name "$APP" 2>/dev/null | head -1)
-    fi
-    # Prefer the ``openagent-computer-control.app`` bundle (v0.6.9+).
-    # macOS TCC only recognises processes from proper .app bundles for
-    # Accessibility / Screen Recording prompts — a bare CLI binary
-    # can't trigger dialogs or register in Privacy & Security settings
-    # when spawned by launchd. Fall back to the bare binary if the
-    # .pkg still ships the old layout.
-    SIDECAR=$(find "$TMP/pkg-expanded" -type d -name "openagent-computer-control.app" 2>/dev/null | head -1)
-    if [ -z "$SIDECAR" ]; then
-        SIDECAR=$(find "$TMP/pkg-expanded" -type f -name "openagent-computer-control" 2>/dev/null | head -1)
+
+    # v0.6.11+ ships the openagent server as a proper ``.app`` bundle
+    # so macOS TCC can key permission grants by CFBundleIdentifier
+    # rather than cdhash (grants persist across updates). The bundle
+    # contains both the onefile Mach-O and the computer-control
+    # sidecar under Contents/MacOS/.
+    APP_BUNDLE=$(find "$TMP/pkg-expanded" -type d -name "${APP}.app" 2>/dev/null | head -1)
+    # Fall back to the legacy bare-binary layout for older packages.
+    BINARY=""
+    SIDECAR=""
+    if [ -z "$APP_BUNDLE" ]; then
+        BINARY=$(find "$TMP/pkg-expanded" -type f -name "$APP" -perm +111 2>/dev/null | head -1)
+        if [ -z "$BINARY" ]; then
+            BINARY=$(find "$TMP/pkg-expanded" -type f -name "$APP" 2>/dev/null | head -1)
+        fi
+        SIDECAR=$(find "$TMP/pkg-expanded" -type d -name "openagent-computer-control.app" 2>/dev/null | head -1)
+        if [ -z "$SIDECAR" ]; then
+            SIDECAR=$(find "$TMP/pkg-expanded" -type f -name "openagent-computer-control" 2>/dev/null | head -1)
+        fi
     fi
 else
     tar xzf "$TMP/$ARCHIVE" -C "$TMP"
@@ -166,6 +170,7 @@ else
     fi
     # Linux/Windows .tar.gz / .zip ship the sidecar next to the main
     # binary in the archive root.
+    APP_BUNDLE=""
     if [ -f "$TMP/openagent-computer-control" ]; then
         SIDECAR="$TMP/openagent-computer-control"
     elif [ -f "$TMP/openagent-computer-control.exe" ]; then
@@ -175,54 +180,73 @@ else
     fi
 fi
 
-if [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; then
-    echo "Could not locate the $APP binary in the downloaded $ARCHIVE." >&2
+if [ -z "${APP_BUNDLE:-}" ] && { [ -z "$BINARY" ] || [ ! -f "$BINARY" ]; }; then
+    echo "Could not locate the $APP binary or ${APP}.app bundle in the downloaded $ARCHIVE." >&2
     exit 1
 fi
 
 # ── Install ──────────────────────────────────────────────────────────
 
-DEST="$PREFIX/$APP"
-echo "→ Installing to $DEST"
-cp "$BINARY" "$DEST"
-chmod +x "$DEST"
+if [ -n "${APP_BUNDLE:-}" ]; then
+    # macOS .app layout (v0.6.11+). Drop the bundle into ~/Applications
+    # (user-scope, no sudo) and create a symlink at $PREFIX/$APP into
+    # the bundle's inner binary so ``openagent serve ...`` from a
+    # terminal still works.
+    APPS_DIR="$HOME/Applications"
+    mkdir -p "$APPS_DIR"
+    APP_DEST="$APPS_DIR/${APP}.app"
+    echo "→ Installing ${APP}.app to $APP_DEST"
+    rm -rf "$APP_DEST"
+    cp -R "$APP_BUNDLE" "$APP_DEST"
+    if command -v xattr >/dev/null 2>&1; then
+        xattr -dr com.apple.quarantine "$APP_DEST" 2>/dev/null || true
+    fi
 
-# Install the computer-control sidecar next to the main binary. The
-# Rust binary stays OUTSIDE the PyInstaller archive so its Developer-ID
-# signature survives intact. On macOS it ships as a proper ``.app``
-# bundle (v0.6.9+) — required for TCC to recognise it as an app and
-# register it in Privacy & Security → Accessibility. On Linux/Windows
-# it's a bare binary.
-if [ "$PRODUCT" = "server" ] && [ -n "${SIDECAR:-}" ] && [ -e "$SIDECAR" ]; then
-    SIDECAR_NAME=$(basename "$SIDECAR")
-    SIDECAR_DEST="$PREFIX/$SIDECAR_NAME"
-    if [ -d "$SIDECAR" ]; then
-        # macOS .app bundle — copy the whole directory tree with
-        # ``cp -R`` and clear any residual quarantine xattrs on the
-        # Mach-O inside so macOS doesn't refuse to launch it on first
-        # run. ``rm -rf`` the destination first so stale contents from
-        # an older version don't linger.
-        echo "→ Installing $SIDECAR_NAME bundle to $SIDECAR_DEST"
-        rm -rf "$SIDECAR_DEST"
-        cp -R "$SIDECAR" "$SIDECAR_DEST"
-        if command -v xattr >/dev/null 2>&1; then
-            xattr -dr com.apple.quarantine "$SIDECAR_DEST" 2>/dev/null || true
-        fi
-    else
-        # Bare binary (Linux / Windows / fallback on macOS older pkgs).
-        echo "→ Installing sidecar $SIDECAR_NAME to $SIDECAR_DEST"
-        cp "$SIDECAR" "$SIDECAR_DEST"
-        chmod +x "$SIDECAR_DEST"
-        if [ "$OS" = "macos" ] && command -v xattr >/dev/null 2>&1; then
-            xattr -dr com.apple.quarantine "$SIDECAR_DEST" 2>/dev/null || true
+    # CLI symlink — the path TCC sees when ``openagent`` is invoked is
+    # resolved through this to the bundle's inner binary. macOS treats
+    # the executed Mach-O as part of openagent.app because of the
+    # Contents/MacOS/ layout, so TCC keys grants to
+    # ``com.openagent.server``.
+    APP_INNER_EXE="$APP_DEST/Contents/MacOS/$APP"
+    if [ ! -x "$APP_INNER_EXE" ]; then
+        echo "Unexpected layout: $APP_INNER_EXE missing" >&2
+        exit 1
+    fi
+    DEST="$PREFIX/$APP"
+    echo "→ Linking $DEST → $APP_INNER_EXE"
+    rm -f "$DEST"
+    ln -s "$APP_INNER_EXE" "$DEST"
+else
+    # Legacy bare-binary layout (Linux, Windows, or older macOS pkgs).
+    DEST="$PREFIX/$APP"
+    echo "→ Installing to $DEST"
+    cp "$BINARY" "$DEST"
+    chmod +x "$DEST"
+    if [ "$OS" = "macos" ] && command -v xattr >/dev/null 2>&1; then
+        xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
+    fi
+
+    # Install the computer-control sidecar next to the main binary.
+    if [ "$PRODUCT" = "server" ] && [ -n "${SIDECAR:-}" ] && [ -e "$SIDECAR" ]; then
+        SIDECAR_NAME=$(basename "$SIDECAR")
+        SIDECAR_DEST="$PREFIX/$SIDECAR_NAME"
+        if [ -d "$SIDECAR" ]; then
+            # macOS legacy .app-bundle sidecar.
+            echo "→ Installing $SIDECAR_NAME bundle to $SIDECAR_DEST"
+            rm -rf "$SIDECAR_DEST"
+            cp -R "$SIDECAR" "$SIDECAR_DEST"
+            if command -v xattr >/dev/null 2>&1; then
+                xattr -dr com.apple.quarantine "$SIDECAR_DEST" 2>/dev/null || true
+            fi
+        else
+            echo "→ Installing sidecar $SIDECAR_NAME to $SIDECAR_DEST"
+            cp "$SIDECAR" "$SIDECAR_DEST"
+            chmod +x "$SIDECAR_DEST"
+            if [ "$OS" = "macos" ] && command -v xattr >/dev/null 2>&1; then
+                xattr -dr com.apple.quarantine "$SIDECAR_DEST" 2>/dev/null || true
+            fi
         fi
     fi
-fi
-
-# Belt-and-braces: neither curl nor pkgutil sets com.apple.quarantine,
-# but clear it anyway in case something upstream did.
-if [ "$OS" = "macos" ] && command -v xattr >/dev/null 2>&1; then
-    xattr -dr com.apple.quarantine "$DEST" 2>/dev/null || true
 fi
 
 # ── PATH hint ────────────────────────────────────────────────────────
