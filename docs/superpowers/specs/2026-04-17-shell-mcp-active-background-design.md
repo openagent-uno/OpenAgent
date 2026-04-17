@@ -46,25 +46,54 @@ session.
 
 ## High-level approach
 
-Replace the Node MCP subprocess with an in-process Python MCP following
-the pattern already used by `openagent.mcp.servers.scheduler`. Running
-inside the agent process lets background shells directly signal an
-`asyncio` primitive the agent run loop awaits, so no cross-process IPC
-is needed.
+Replace the Node MCP subprocess with a **true in-process MCP** that
+runs inside the agent's Python process. This is different from the
+current `scheduler` builtin (which is a Python subprocess launched via
+`python -m`) — the shell tool handlers execute in the same event loop
+as the agent, so background shells directly signal an `asyncio`
+primitive the agent run loop awaits. No cross-process IPC.
 
-Three pieces:
+Both providers OpenAgent ships with support in-process tool
+registration:
 
-- `openagent/mcp/servers/shell/server.py` — MCP server exposing the
-  tool surface. Uses `asyncio.create_subprocess_exec` for every shell.
+- **Claude Agent SDK**: `claude_agent_sdk.create_sdk_mcp_server(name,
+  tools=[...])` builds a `McpSdkServerConfig` that runs the tool
+  handler in-process and is passed into
+  `ClaudeAgentOptions.mcp_servers` alongside stdio MCPs.
+- **Agno**: `agno.tools.Toolkit(name="shell", tools=[...])` holds
+  Python callables that Agno's `Agent` invokes directly.
+
+The shell tools live as plain async functions in
+`openagent/mcp/servers/shell/handlers.py`; each provider adapter wraps
+them with its own decorator (SDK `@tool` / Agno `Toolkit`). Same code,
+two thin wrappers, one shared `ShellHub` singleton sitting alongside
+them in the agent process.
+
+Files:
+
+- `openagent/mcp/servers/shell/handlers.py` — pure-Python tool
+  handlers. No provider imports.
 - `openagent/mcp/servers/shell/hub.py` — process-wide singleton
   `ShellHub` that owns live background shells and per-session event
-  queues. Imported as a writer by the MCP server and as a reader by
-  the agent run loop.
+  queues.
+- `openagent/mcp/servers/shell/shells.py` — `BackgroundShell` class
+  that wraps one `asyncio.subprocess.Process` with stdout / stderr
+  buffers, timeout task, kill escalation.
+- `openagent/mcp/servers/shell/events.py` — `ShellEvent` dataclass.
+- `openagent/mcp/servers/shell/adapters.py` — two small adapters:
+  `build_sdk_server()` returns the Claude SDK `McpSdkServerConfig`,
+  `build_agno_toolkit()` returns the Agno `Toolkit`.
+- `openagent/mcp/pool.py` — extend `MCPPool` with an `in_process` spec
+  category; `pool.agno_toolkits` now returns subprocess toolkits +
+  in-process toolkits; `pool.claude_sdk_servers()` now merges stdio
+  configs + SDK-server configs.
 - `openagent/core/agent.py` — `_run_inner` loop change that continues
   the current session when the hub reports pending events.
 
 The loop is provider-agnostic because it sits *above* `model.generate`
 and reuses the `session_id` contract every provider already honours.
+The in-process handlers are also provider-agnostic — each provider
+just sees a tool it can call.
 
 ## Tool surface
 
@@ -403,24 +432,23 @@ a "no-session" bucket that the agent loop ignores.
 
 - Delete `openagent/mcp/servers/shell/src/`, `dist/`, `node_modules/`,
   `package.json`, `package-lock.json`, `tsconfig.json`.
-- Add `openagent/mcp/servers/shell/__init__.py`, `server.py`,
-  `hub.py`, `events.py`.
+- Add `openagent/mcp/servers/shell/__init__.py`, `handlers.py`,
+  `hub.py`, `shells.py`, `events.py`, `adapters.py`.
 - Update `BUILTIN_MCP_SPECS["shell"]` in
-  `openagent/mcp/builtins.py:155` to use the Python-builtin shape used
-  by `scheduler`:
+  `openagent/mcp/builtins.py:155` to a new in-process shape:
 
   ```python
   "shell": {
-      "dir": "shell",
-      "command": ["python", "-m", "openagent.mcp.servers.shell.server"],
-      "python": True,
+      "in_process": True,
+      "adapter_module": "openagent.mcp.servers.shell.adapters",
   }
   ```
 
 - Tool names `shell_exec` and `shell_which` are unchanged, so prompts
   and existing model priors still work. New tools are additive.
 - Remove any Node/npm references to the shell MCP from `scripts/`,
-  `pyproject.toml`, and CI.
+  `pyproject.toml`, CI, and the PyInstaller specs (`openagent.spec`,
+  `cli.spec`).
 
 ## Testing
 
