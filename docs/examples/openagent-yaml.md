@@ -1,6 +1,6 @@
 # Example `openagent.yaml`
 
-This is the sanitized production-style example shipped with the repository. Since v0.9.0 the **MCP server list** and the **per-provider model catalog** live in SQLite, not in this file — manage them via the `mcp-manager` / `model-manager` built-in MCPs, the `/api/mcps` + `/api/models/db` REST endpoints, or the desktop/CLI UI.
+This is the sanitized production-style example shipped with the repository. LLM providers (API keys, base URLs) and the per-provider model catalog live in SQLite, not in this file — manage them via the `mcp-manager` / `model-manager` built-in MCPs, the `/api/providers`, `/api/mcps`, and `/api/models/db` REST endpoints, or the desktop/CLI UI.
 
 ::: tip Multi-Agent Mode
 When using agent directories (`openagent serve ./my-agent`), this file lives at `./my-agent/openagent.yaml` alongside the database, memories, and logs. The `memory.db_path` and `memory.vault_path` fields are optional — they default to the agent directory. Each agent directory is fully self-contained.
@@ -9,23 +9,19 @@ When using agent directories (`openagent serve ./my-agent`), this file lives at 
 ```yaml
 # OpenAgent example configuration.
 #
-# Since v0.9.0 the **MCP server list** and the **LLM model catalog**
-# live in SQLite, not in this file. They are managed at runtime via:
+# LLM providers (API keys, base URLs) and the per-provider model
+# catalog live in SQLite, not in this file. Manage them via:
 #
 #   - the ``mcp-manager`` and ``model-manager`` built-in MCPs (the agent
 #     itself can call their tools to add/remove/toggle entries);
-#   - the REST API — ``/api/mcps/*`` and ``/api/models/db/*``;
+#   - the REST API — ``/api/providers/*``, ``/api/mcps/*``, and
+#     ``/api/models/db/*``;
 #   - the desktop app's Settings screens and the CLI's ``/mcps`` /
-#     ``/models`` slash commands (both hit the same REST endpoints).
+#     ``/models`` / ``openagent provider`` commands.
 #
-# **Upgrading from <0.9.0:** the first boot of an upgraded install
-# copies any yaml ``mcp:``, ``mcp_disable:``, and
-# ``providers.X.models:`` entries into the DB and sets a
-# ``config_state`` flag so subsequent yaml edits to those fields are
-# ignored. The yaml continues to be the source of truth for
-# ``providers.X.api_key`` (and other credentials), ``channels``,
-# ``memory`` paths, ``dream_mode``, ``auto_update``, ``system_prompt``,
-# and ``name``.
+# This yaml is the source of truth for ``channels``, ``memory`` paths,
+# ``dream_mode``, ``auto_update``, ``system_prompt``, ``name``, and the
+# ``model:`` routing block.
 #
 # Any value in the form ${VAR_NAME} is substituted from environment
 # variables at load time.
@@ -79,17 +75,12 @@ memory:
   db_path: ~/.openagent/openagent.db
   vault_path: ~/.openagent/memories
 
-# API keys for LLM providers (source of truth — NOT in the DB).
-# The list of MODELS per provider lives in the DB; add/remove via
-# the ``model-manager`` MCP, ``POST /api/models/db``, or the app/CLI.
-providers:
-  openai:
-    api_key: ${OPENAI_API_KEY}
-  anthropic:
-    api_key: ${ANTHROPIC_API_KEY}
-  google:
-    api_key: ${GOOGLE_API_KEY}
-
+# LLM provider credentials (API keys, base URLs) and the per-provider
+# model catalog live in the ``providers`` and ``models`` SQLite tables.
+# Add/remove/toggle them via the ``model-manager`` MCP, the
+# ``/api/providers`` and ``/api/models/db`` REST endpoints, the
+# ``openagent provider`` CLI, or the desktop app's Settings screen.
+#
 # MCP servers used to live here as a ``mcp:`` list. They now live in
 # the ``mcps`` SQLite table. On upgrade, any pre-existing yaml entries
 # are imported ONCE into the DB; after that the yaml block is ignored

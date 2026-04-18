@@ -2,12 +2,12 @@
 
 ## Full YAML
 
-Since v0.9.0 the **MCP list** and the **per-provider model catalog** live
-in SQLite, not in this file. They are managed via the `mcp-manager` /
-`model-manager` built-in MCPs, the REST endpoints (`/api/mcps`,
-`/api/models/db`), or the desktop/CLI UI. yaml stays the source of
-truth for identity, API keys, channels, memory paths, dream mode, and
-auto-update.
+LLM providers (API keys, base URLs), the per-provider model catalog,
+and the MCP server list live in SQLite, not in this file. Manage them
+via the `mcp-manager` / `model-manager` built-in MCPs, the REST
+endpoints (`/api/providers`, `/api/mcps`, `/api/models/db`), or the
+desktop/CLI UI. yaml stays the source of truth for identity, channels,
+memory paths, dream mode, and auto-update.
 
 ```yaml
 name: my-agent
@@ -30,21 +30,17 @@ model:
   #   hard: claude-cli/claude-sonnet-4-6
   #   fallback: openai:gpt-4o-mini
 
-# API keys + base URLs for LLM providers. The per-provider model list
-# is NOT here — it lives in the ``models`` DB table.
-providers:
-  openai:
-    api_key: ${OPENAI_API_KEY}
-  anthropic:
-    api_key: ${ANTHROPIC_API_KEY}
-  google:
-    api_key: ${GOOGLE_API_KEY}
-
-# MCPs used to live in a yaml ``mcp:`` list. Since v0.9.0 they live in
-# the ``mcps`` SQLite table. On upgrade, any pre-existing yaml entries
-# are imported once into the DB and then ignored; use the MCPs screen,
-# the ``/mcps`` slash command, or ``mcp-manager`` from inside the agent
-# to add/remove/toggle servers at runtime.
+# LLM provider credentials (API keys, base URLs) and the per-provider
+# model catalog live in the ``providers`` and ``models`` SQLite tables.
+# Add/manage them via ``openagent provider add``, the ``model-manager``
+# MCP, ``POST /api/providers`` + ``POST /api/models/db``, or the
+# Settings screen in the desktop app.
+#
+# MCPs used to live in a yaml ``mcp:`` list. They now live in the
+# ``mcps`` SQLite table. On upgrade, any pre-existing yaml entries are
+# imported once into the DB and then ignored; use the MCPs screen, the
+# ``/mcps`` slash command, or ``mcp-manager`` from inside the agent to
+# add/remove/toggle servers at runtime.
 
 memory:
   db_path: "~/.openagent/openagent.db"

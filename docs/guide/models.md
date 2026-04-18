@@ -4,7 +4,7 @@ OpenAgent is model agnostic by design. It supports Agno providers (OpenAI, Anthr
 
 ## One router to rule them all
 
-Since v0.9.0 the active runtime is **always** the SmartRouter. It:
+The active runtime is **always** the SmartRouter. It:
 
 1. Reads the enabled models from the `models` SQLite table.
 2. Classifies each incoming message into a tier (`simple` / `medium` / `hard`) using a cheap classifier model.
@@ -28,27 +28,30 @@ model:
 
 Legacy `model.provider` values (`claude-cli`, `anthropic`, `zhipu`, …) still work — they get translated into a SmartRouter whose tiers all point at the single configured model.
 
-## API keys live in yaml, models live in the DB
+## Providers and models live in the DB
 
-`providers.<name>.api_key` and `base_url` stay in `openagent.yaml` — they are the source of truth for credentials:
+Provider credentials (`api_key`, `base_url`) live in the `providers` SQLite table. Add one via the CLI:
 
-```yaml
-providers:
-  openai:
-    api_key: ${OPENAI_API_KEY}
-  anthropic:
-    api_key: ${ANTHROPIC_API_KEY}
-  google:
-    api_key: ${GOOGLE_API_KEY}
+```bash
+openagent provider add openai --key=$OPENAI_API_KEY
+openagent provider add anthropic --key=$ANTHROPIC_API_KEY
+openagent provider add google --key=$GOOGLE_API_KEY
+```
+
+Or via REST:
+
+```bash
+curl -X POST http://localhost:8765/api/providers -H 'Content-Type: application/json' -d '{
+  "name": "openai",
+  "api_key": "sk-..."
+}'
 ```
 
 The per-provider **model list** (which ids are available to route to) lives in the `models` table and is managed via:
 
 - **From the agent** — the `model-manager` built-in MCP exposes `list_models`, `list_available_models` (dynamic discovery via the provider's `/v1/models` or OpenRouter fallback), `add_model`, `update_model`, `enable_model`, `disable_model`, `remove_model`, `test_model`.
 - **REST** — `GET/POST/PUT/DELETE /api/models/db[/...]`, plus `/enable` and `/disable`. `GET /api/models/available?provider=openai` returns the live catalog for a given provider.
-- **UI** — the Models screen in the desktop app or the `/models` slash command in the CLI.
-
-Upgrading an install from <v0.9.0 copies the yaml `providers.X.models:` lists into the DB once and then ignores them on subsequent boots.
+- **UI** — the Models / Providers screens in the desktop app or the `/models` slash command in the CLI.
 
 ## Claude CLI (Claude Pro/Max subscription)
 
