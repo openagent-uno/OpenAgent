@@ -14,6 +14,7 @@ It's model-agnostic: Claude, GLM, Ollama, LM Studio, vLLM, or any OpenAI-compati
 
 - [Models](./models.md) — pick a provider
 - [MCP tools](./mcp.md) — filesystem, editor, browser, web search, and more
+- [Gateway](./gateway.md) — WebSocket + REST surface for every client
 - [Channels](./channels.md) — Telegram, Discord, WhatsApp, WebSocket
 - [Memory & vault](./memory.md) — the markdown-based Obsidian vault
 - [Scheduler & Dream Mode](./scheduler.md) — recurring tasks and background work
@@ -21,8 +22,7 @@ It's model-agnostic: Claude, GLM, Ollama, LM Studio, vLLM, or any OpenAI-compati
 ## Clients & operations
 
 - [Desktop App](./desktop-app.md)
-- [Architecture diagrams](./architecture.md) — system flow in Mermaid
-- [Services & gateway](./services.md)
+- [Architecture](./architecture.md) — component map and system flow
 - [Deployment](./deployment.md)
 
 ## Examples
